@@ -6,6 +6,7 @@ authors = ["Peter van Kranenburg <peter.van.kranenburg@meertens.knaw.nl>"]
 readme = "README.md"
 packages = [{include = "pitchcontext", from = "src"}]
 
+[tool.poetry.dependencies]
 #streamlit is not compatible with Python 3.9.7
 python = ">=3.8,<3.9.7 || >3.9.7,<4.0" 
 music21 = "^6.0"
