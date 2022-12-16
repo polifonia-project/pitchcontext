@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "pitchcontext"
+version = "0.1.0"
+description = ""
+authors = ["Peter van Kranenburg <peter.van.kranenburg@meertens.knaw.nl>"]
+readme = "README.md"
+packages = [{include = "pitchcontext", from = "src"}]
+
+#streamlit is not compatible with Python 3.9.7
+python = ">=3.8,<3.9.7 || >3.9.7,<4.0" 
+music21 = "^6.0"
+numpy = "^1.19"
+matplotlib = "^3.3"
+IPython = "^7.19"
+seaborn = "^0.12.1"
+
+[tool.poetry.group.dev.dependencies]
+streamlit = "^1.15.2"
+ipykernel = "^6.19.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
