@@ -299,7 +299,8 @@ class Song:
                 self.mtcsong['features']['maxbeatstrength'][ix] = np.max(beatstrength_grid_np[span[0]:span[1]])
         #final note:
         self.mtcsong['features']['maxbeatstrength'][-1] = self.mtcsong['features']['beatstrength'][-1]
-    
+        self.mtcsong['features']['beatinsong_float'] = [float(Fraction(b)) for b in self.mtcsong['features']['beatinsong']]
+
     def getColoredSong(self, colordict):
         """Create a new music21 stream with notes colored according to `colordict`.
 
