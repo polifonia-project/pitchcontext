@@ -12,6 +12,8 @@ from pitchcontext import Song, PitchContext
 from pitchcontext.visualize import novelty2colordict, consonance2colordict, plotArray
 from pitchcontext.models import computeConsonance, computeNovelty
 
+from pitchcontext.base40 import base40naturalslist
+
 path_to_krn = 'NLB147059_01.krn'
 with open('NLB147059_01.json','r') as f:
     mtcsong = json.load(f)
@@ -56,14 +58,14 @@ with st.sidebar:
         min_value=0.0,
         max_value=songlength_beat,
         step=0.5,
-        value=1.0
+        value=songlength_beat
     )
     post_c_slider = st.slider(
         'Length of following context (beats)',
         min_value=0.0,
         max_value=songlength_beat,
         step=0.5,
-        value=1.0
+        value=0.0
     )
     partialnotes_check = st.checkbox(
         "Include partial notes in preceding context.",
@@ -79,7 +81,7 @@ with st.sidebar:
     )
     include_focus_pre_check = st.checkbox(
         "Include Focus note in preceding context:",
-        value=True,
+        value=False,
     )
     include_focus_post_check = st.checkbox(
         "Include Focus note in following context:",
@@ -150,11 +152,15 @@ wpc = PitchContext(
 )
 
 fig_pre, ax_pre = plt.subplots(figsize=(10,2))
-sns.heatmap(wpc.pitchcontext[:,:40].T, ax=ax_pre, xticklabels=wpc.ixs)
+sns.heatmap(wpc.pitchcontext[:,:40].T, ax=ax_pre, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
+ax_pre.invert_yaxis()
+plt.yticks(rotation=0)
 st.write(fig_pre)
 
 fig_post, ax_post = plt.subplots(figsize=(10,2))
-sns.heatmap(wpc.pitchcontext[:,40:].T, ax=ax_post, xticklabels=wpc.ixs)
+sns.heatmap(wpc.pitchcontext[:,40:].T, ax=ax_post, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
+ax_post.invert_yaxis()
+plt.yticks(rotation=0)
 st.write(fig_post)
 
 novelty = computeNovelty(song, wpc)
@@ -163,8 +169,6 @@ nov_threshold = np.nanpercentile(novelty,percentile_slider)
 fig_nov, ax_nov = plotArray(novelty, wpc.ixs, '', '')
 plt.axhline(y=nov_threshold, color='r', linestyle=':')
 st.write(fig_nov)
-
-
 
 cdict = novelty2colordict(novelty, wpc.ixs, percentile_slider, song.getSongLength())
 pngfn = song.createColoredPNG(cdict, '/Users/krane108/tmp/', showfilename=False)

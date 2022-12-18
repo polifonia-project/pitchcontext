@@ -12,6 +12,7 @@ import streamlit as st
 from pitchcontext import Song, PitchContext
 from pitchcontext.visualize import novelty2colordict, consonance2colordict, plotArray
 from pitchcontext.models import computeConsonance, computeNovelty
+from pitchcontext.base40 import base40naturalslist
 
 st.title("Consonance")
 
@@ -29,6 +30,7 @@ with st.sidebar:
         value="/Users/krane108/data/MTCFeatures/MTC-FS-inst-2.0/json"
     )
 
+    #we need to do this here, because the song is needed to set pre_c_slider and post_c_slider max
     krnfilename = os.path.join(krnpath, songid+'.krn')
     jsonfilename = os.path.join(jsonpath, songid+'.json')
     with open(jsonfilename,'r') as f:
@@ -36,7 +38,7 @@ with st.sidebar:
 
     song = Song(mtcsong, krnfilename)
     songlength_beat = float(sum([Fraction(length) for length in song.mtcsong['features']['beatfraction']]))
-    
+
     preauto_check = st.checkbox(
         "Determine preceding context automatically.",
         value=False
@@ -117,6 +119,7 @@ with st.sidebar:
         value=40
     )
 
+
 len_context_pre = 'auto' if preauto_check else pre_c_slider
 len_context_post = 'auto' if postauto_check else post_c_slider
 
@@ -144,11 +147,15 @@ wpc = PitchContext(
 )
 
 fig_pre, ax_pre = plt.subplots(figsize=(10,2))
-sns.heatmap(wpc.pitchcontext[:,:40].T, ax=ax_pre, xticklabels=wpc.ixs)
+sns.heatmap(wpc.pitchcontext[:,:40].T, ax=ax_pre, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
+ax_pre.invert_yaxis()
+plt.yticks(rotation=0)
 st.write(fig_pre)
 
 fig_post, ax_post = plt.subplots(figsize=(10,2))
-sns.heatmap(wpc.pitchcontext[:,40:].T, ax=ax_post, xticklabels=wpc.ixs)
+sns.heatmap(wpc.pitchcontext[:,40:].T, ax=ax_post, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
+ax_post.invert_yaxis()
+plt.yticks(rotation=0)
 st.write(fig_post)
 
 consonance_pre, consonance_post, consonance_context  = computeConsonance(song, wpc, combiner=lambda x, y: (x+y)*0.5, normalizecontexts=True)

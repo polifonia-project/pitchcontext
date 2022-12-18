@@ -40,3 +40,10 @@ base40 = {
     38:"B#",
     39:"B##",
 }
+
+#As list
+base40list = [base40[key] for key in range(0,40)]
+
+#Only natural tones
+sel=['A','B','C','D','E','F','G']
+base40naturalslist = [base40[key] if base40[key] in sel else '' for key in range(0,40)]
