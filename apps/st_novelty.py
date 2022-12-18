@@ -120,7 +120,7 @@ with st.sidebar:
         min_value=0,
         max_value=100,
         step=1,
-        value=40
+        value=80
     )
 
 len_context_pre = 'auto' if preauto_check else pre_c_slider
