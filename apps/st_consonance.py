@@ -149,12 +149,18 @@ wpc = PitchContext(
 fig_pre, ax_pre = plt.subplots(figsize=(10,2))
 sns.heatmap(wpc.pitchcontext[:,:40].T, ax=ax_pre, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
 ax_pre.invert_yaxis()
+plt.title('Pitchcontext vectors preceding context')
+plt.xlabel('Note index')
+plt.ylabel('Pitch')
 plt.yticks(rotation=0)
 st.write(fig_pre)
 
 fig_post, ax_post = plt.subplots(figsize=(10,2))
 sns.heatmap(wpc.pitchcontext[:,40:].T, ax=ax_post, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
 ax_post.invert_yaxis()
+plt.title('Pitchcontext vectors following context')
+plt.xlabel('Note index')
+plt.ylabel('Pitch')
 plt.yticks(rotation=0)
 st.write(fig_post)
 
@@ -164,6 +170,9 @@ consonance_pre, consonance_post, consonance_context  = computeConsonance(song, w
 cons_threshold = np.nanpercentile(consonance_context,percentile_slider)
 fig_cons, ax_cons = plotArray(consonance_context, wpc.ixs, '', '')
 plt.axhline(y=cons_threshold, color='r', linestyle=':')
+plt.title('Consonance of the focus note within its context')
+plt.xlabel('Note index')
+plt.ylabel('Consonance')
 st.write(fig_cons)
 
 cdict = consonance2colordict(consonance_context, wpc.ixs, percentile_slider, song.getSongLength())
