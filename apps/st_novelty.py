@@ -1,7 +1,7 @@
 import json
 from fractions import Fraction
 from PIL import Image
-import tempfile
+import os
 
 import numpy as np
 import seaborn as sns
@@ -22,19 +22,52 @@ songlength_beat = float(sum([Fraction(length) for length in song.mtcsong['featur
 st.title("Novelty")
 
 with st.sidebar:
+    songid = st.text_input(
+        label="Song ID",
+        value="NLB147059_01"
+    )
+    krnpath = st.text_input(
+        label="Path to **kern files",
+        value="/Users/krane108/data/MTC/MTC-FS-INST-2.0/krn"
+    )
+    jsonpath = st.text_input(
+        label="Path to MTCFeatures .json files",
+        value="/Users/krane108/data/MTCFeatures/MTC-FS-inst-2.0/json"
+    )
+
+    krnfilename = os.path.join(krnpath, songid+'.krn')
+    jsonfilename = os.path.join(jsonpath, songid+'.json')
+    with open(jsonfilename,'r') as f:
+        mtcsong = json.load(f)
+
+    song = Song(mtcsong, krnfilename)
+    songlength_beat = float(sum([Fraction(length) for length in song.mtcsong['features']['beatfraction']]))
+    
+    preauto_check = st.checkbox(
+        "Determine preceding context automatically.",
+        value=False
+    )
+    postauto_check = st.checkbox(
+        "Determine following context automatically",
+        value=False
+    )
     pre_c_slider = st.slider(
         'Length of preceding context (beats)',
         min_value=0.0,
         max_value=songlength_beat,
         step=0.5,
-        value=songlength_beat
+        value=1.0
     )
     post_c_slider = st.slider(
         'Length of following context (beats)',
         min_value=0.0,
         max_value=songlength_beat,
         step=0.5,
-        value=0.0
+        value=1.0
+    )
+    partialnotes_check = st.checkbox(
+        "Include partial notes in preceding context.",
+        value=True
     )
     removerep_check = st.checkbox(
         "Merge repeated notes.",
@@ -44,10 +77,13 @@ with st.sidebar:
         "Accumulate Weight.",
         value=True
     )
-    includeFocus_rad = st.radio(
-        "Include Focus note in context:",
-        ('none', 'pre', 'post', 'both'),
-        index=2
+    include_focus_pre_check = st.checkbox(
+        "Include Focus note in preceding context:",
+        value=True,
+    )
+    include_focus_post_check = st.checkbox(
+        "Include Focus note in following context:",
+        value=True,
     )
     pre_usemw_check = st.checkbox(
         "Use metric weight for preceding context",
@@ -55,11 +91,11 @@ with st.sidebar:
     )
     post_usemw_check = st.checkbox(
         "Use metric weight for following context",
-        value=False
+        value=True
     )
     pre_usedw_check = st.checkbox(
         "Use distance weight for preceding context",
-        value=True
+        value=False
     )
     post_usedw_check = st.checkbox(
         "Use distance weight for following context",
@@ -84,18 +120,33 @@ with st.sidebar:
         min_value=0,
         max_value=100,
         step=1,
-        value=80
+        value=40
     )
+
+len_context_pre = 'auto' if preauto_check else pre_c_slider
+len_context_post = 'auto' if postauto_check else post_c_slider
+
+syncopes=True
+if accweight_check:
+    syncopes=False
 
 wpc = PitchContext(
     song,
-    removeRepeats=removerep_check,
-    accumulateWeight=accweight_check,
-    len_context_beat=(pre_c_slider,post_c_slider),
-    use_metric_weights=(pre_usemw_check, post_usemw_check),
-    includeFocus=includeFocus_rad,
-    use_distance_weights=(pre_usedw_check, post_usedw_check),
-    min_distance_weight=(mindistw_pre_slider, mindistw_post_slider)
+    syncopes=syncopes,
+    remove_repeats=removerep_check,
+    accumulate_weight=accweight_check,
+    partial_notes=partialnotes_check,
+    context_type='beats',
+    len_context_pre=len_context_pre,
+    len_context_post=len_context_post,
+    use_metric_weights_pre=pre_usemw_check,
+    use_metric_weights_post=post_usemw_check,
+    include_focus_pre=include_focus_pre_check,
+    include_focus_post=include_focus_post_check,
+    use_distance_weights_pre=pre_usedw_check,
+    use_distance_weights_post=post_usedw_check,
+    min_distance_weight_pre=mindistw_pre_slider,
+    min_distance_weight_post=mindistw_post_slider,
 )
 
 fig_pre, ax_pre = plt.subplots(figsize=(10,2))
@@ -113,16 +164,7 @@ fig_nov, ax_nov = plotArray(novelty, wpc.ixs, '', '')
 plt.axhline(y=nov_threshold, color='r', linestyle=':')
 st.write(fig_nov)
 
-# @st.cache
-# def createScore(outputdir):
-#     pngfn = song.createPNG(outputdir)
-#     return pngfn
 
-# pngfn = createScore('/Users/krane108/tmp/')
-# image = Image.open(pngfn)
-# st.image(image)
-
-# st.write(wpc.params)
 
 cdict = novelty2colordict(novelty, wpc.ixs, percentile_slider, song.getSongLength())
 pngfn = song.createColoredPNG(cdict, '/Users/krane108/tmp/', showfilename=False)
