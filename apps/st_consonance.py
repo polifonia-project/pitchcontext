@@ -2,6 +2,7 @@ import json
 from fractions import Fraction
 from PIL import Image
 import os
+from dataclasses import asdict
 
 import numpy as np
 import seaborn as sns
@@ -66,10 +67,13 @@ with st.sidebar:
         "Accumulate Weight.",
         value=True
     )
-    includeFocus_rad = st.radio(
-        "Include Focus note in context:",
-        ('none', 'pre', 'post', 'both'),
-        index=0
+    include_focus_pre_check = st.checkbox(
+        "Include Focus note in preceding context:",
+        value=True,
+    )
+    include_focus_post_check = st.checkbox(
+        "Include Focus note in following context:",
+        value=True,
     )
     pre_usemw_check = st.checkbox(
         "Use metric weight for preceding context",
@@ -109,25 +113,29 @@ with st.sidebar:
         value=40
     )
 
-len_tuple = [None,None]
-if preauto_check:
-    len_tuple[0] = 'auto'
-else:
-    len_tuple[0] = pre_c_slider
-if postauto_check:
-    len_tuple[1] = 'auto'
-else:
-    len_tuple[1] = post_c_slider
+len_context_pre = 'auto' if preauto_check else pre_c_slider
+len_context_post = 'auto' if postauto_check else post_c_slider
+
+syncopes=True
+if accweight_check:
+    syncopes=False
 
 wpc = PitchContext(
     song,
-    removeRepeats=removerep_check,
-    accumulateWeight=accweight_check,
-    len_context_beat=len_tuple,
-    use_metric_weights=(pre_usemw_check, post_usemw_check),
-    includeFocus=includeFocus_rad,
-    use_distance_weights=(pre_usedw_check, post_usedw_check),
-    min_distance_weight=(mindistw_pre_slider, mindistw_post_slider)
+    syncopes=syncopes,
+    remove_repeats=removerep_check,
+    accumulate_weight=accweight_check,
+    context_type='beats',
+    len_context_pre=len_context_pre,
+    len_context_post=len_context_post,
+    use_metric_weights_pre=pre_usemw_check,
+    use_metric_weights_post=post_usemw_check,
+    include_focus_pre=include_focus_pre_check,
+    include_focus_post=include_focus_post_check,
+    use_distance_weights_pre=pre_usedw_check,
+    use_distance_weights_post=post_usedw_check,
+    min_distance_weight_pre=mindistw_pre_slider,
+    min_distance_weight_post=mindistw_post_slider,
 )
 
 fig_pre, ax_pre = plt.subplots(figsize=(10,2))
@@ -162,11 +170,11 @@ st.image(image, output_format='PNG')
 
 #wpc.printReport(novelty=novelty, note_ix=33)
 
-st.write(wpc.params)
+st.write(asdict(wpc.params))
 
-wpc.printReport(
-    consonance_context=consonance_context,
-    consonance_pre=consonance_pre,
-    consonance_post=consonance_post,
-    maxbeatstrength=[song.mtcsong['features']['maxbeatstrength'][ix] for ix in wpc.ixs]
-)
+# wpc.printReport(
+#     consonance_context=consonance_context,
+#     consonance_pre=consonance_pre,
+#     consonance_post=consonance_post,
+#     maxbeatstrength=[song.mtcsong['features']['maxbeatstrength'][ix] for ix in wpc.ixs]
+# )
