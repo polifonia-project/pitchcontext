@@ -169,7 +169,8 @@ class ComputePitchContextBeats(ComputePitchContext):
                         if context_pre_ixs[0]-1 >= 0:
                             context_pre_ixs = np.insert(context_pre_ixs, 0, context_pre_ixs[0]-1)
                 else:
-                    context_pre_ixs = np.insert(context_pre_ixs, 0, focus_ix-1) #if context was empty, add previous note anyway        
+                    if len_context_pre>epsilon:
+                        context_pre_ixs = np.insert(context_pre_ixs, 0, focus_ix-1) #if context was empty, add previous note anyway        
         
         return context_pre_ixs
 
