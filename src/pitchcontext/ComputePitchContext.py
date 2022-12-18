@@ -3,8 +3,10 @@ from fractions import Fraction
 
 import numpy as np
 
+from . import pitchcontext
+
 class ComputePitchContext(ABC):
-    def __init__(self, wpc: 'PitchContext'):
+    def __init__(self, wpc: pitchcontext.PitchContext):
         super().__init__()
         self.wpc = wpc
         self.song = wpc.song
@@ -61,7 +63,7 @@ class ComputePitchContextNotes(ComputePitchContext):
     pass
 
 class ComputePitchContextBeats(ComputePitchContext):
-    def __init__(self, wpc: 'PitchContext'):
+    def __init__(self, wpc: pitchcontext.PitchContext):
         super().__init__(wpc)
         #compute some extra features. LENGTH: wpc.ixs
         self.songlength_beat = float(sum([Fraction(length) for length in self.song.mtcsong['features']['beatfraction']])) #length of the song in beats
