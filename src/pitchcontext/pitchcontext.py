@@ -1,11 +1,265 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+import inspect
 from fractions import Fraction
+
 import numpy as np
 
 from .song import Song
 from .base40 import base40
 
-#from datetime import datetime
-#print(__file__, datetime.now().strftime("%H:%M:%S"))
+@dataclass()
+class PCParameters():
+    #For computing note weights
+    remove_repeats: bool = True
+    syncopes: bool = True
+    metric_weights: str = 'beatstrength'
+    accumulate_weight: bool = False
+
+    #For computing weighted pitch context vectors
+    context_type: str = 'beats'
+
+    len_context: 'typing.Any' = None
+    len_context_pre: 'typing.Any' = 'auto'
+    len_context_pre_auto: bool = True
+    len_context_post: 'typing.Any' = 'auto'
+    len_context_post_auto: bool = True
+
+    use_metric_weights: bool = None
+    use_metric_weights_pre: bool = True
+    use_metric_weights_post: bool = True
+
+    use_distance_weights: bool = None
+    use_distance_weights_pre: bool = True
+    use_distance_weights_post: bool = True
+
+    min_distance_weight: float = None
+    min_distance_weight_pre: float = 0.0
+    min_distance_weight_post: float = 0.0
+
+    include_focus: bool = None
+    include_focus_pre: bool = True
+    include_focus_post: bool = True
+
+    partial_notes: bool = True
+    epsilon: float = 1.0e-4
+
+    def __post_init__(self):
+        #make sure these exist
+        self.len_context_pre_auto = False
+        self.len_context_post_auto = False
+
+        #split into pre an post contexts       
+        if self.len_context != None:
+            self.len_context_pre = self.len_context
+            self.len_context_post = self.len_context
+            self.len_context = None
+       
+        if self.len_context_pre == 'auto':
+            self.len_context_pre_auto = True
+            self.len_context_pre = None
+       
+        if self.len_context_post == 'auto':
+            self.len_context_post_auto = True
+            self.len_context_post = None
+       
+        if self.use_metric_weights != None:
+            self.use_metric_weights_pre = self.use_distance_weights
+            self.use_metric_weights_post = self.use_distance_weights
+            self.use_metric_weights = None
+       
+        if self.use_distance_weights != None:
+            self.use_distance_weights_pre = self.use_distance_weights
+            self.use_distance_weights_post = self.use_distance_weights
+            self.use_distance_weights = None
+       
+        if self.min_distance_weight != None:
+            self.min_distance_weight_pre = self.min_distance_weight
+            self.min_distance_weight_post = self.min_distance_weight
+            self.min_distance_weight = None
+       
+        if self.include_focus != None:
+            self.include_focus_pre = self.include_focus
+            self.include_focus_post = self.include_focus
+            self.include_focus = None
+
+class ComputePitchContext(ABC):
+    def __init__(self, wpc: PitchContext):
+        super().__init__()
+        self.wpc = wpc
+        self.song = wpc.song
+        self.params = wpc.params        
+
+    def computePreContext(self, focus_ix):
+        if self.params.len_context_pre_auto:
+            return self.computePreContextAuto(focus_ix)
+        else:
+            return self.computePreContextFixed(focus_ix)
+
+    def computePostContext(self, focus_ix):
+        if self.params.len_context_post_auto:
+            return self.computePostContextAuto(focus_ix)
+        else:
+            return self.computePostContextFixed(focus_ix)
+
+    @abstractmethod
+    def computePreContextFixed(self, focus_ix):
+        pass
+
+    @abstractmethod
+    def computePostContextFixed(self, focus_ix):
+        pass
+
+    @abstractmethod
+    def computePreContextAuto(self, focus_ix):
+        pass
+
+    @abstractmethod
+    def computePostContextAuto(self, focus_ix):
+        pass
+    
+    @abstractmethod
+    def computeDistanceWeightsPre(self, context_pre_ixs, focus_ix):
+        pass
+
+    @abstractmethod
+    def computeDistanceWeightsPost(self, context_post_ixs, focus_ix):
+        pass
+
+    @abstractmethod
+    def computeContextLengthPre(self, context_ixs):
+        pass
+
+    @abstractmethod
+    def computeContextLengthPost(self, context_ixs):
+        pass
+
+class ComputePitchContextSoretime(ComputePitchContext):
+    pass
+
+class ComputePitchContextNotes(ComputePitchContext):
+    pass
+
+class ComputePitchContextBeats(ComputePitchContext):
+    def __init__(self, wpc: PitchContext):
+        super().__init__(wpc)
+        #compute some extra features. LENGTH: wpc.ixs
+        self.songlength_beat = float(sum([Fraction(length) for length in self.song.mtcsong['features']['beatfraction']])) #length of the song in beats
+        self.beatinsong = np.array([self.song.mtcsong['features']['beatinsong_float'][ix] for ix in wpc.ixs])
+        self.beatinsong_next = np.append(self.beatinsong[1:],self.songlength_beat+self.beatinsong[0]) #first beatinsong might be negative (upbeat)
+
+    def computePreContextFixed(self, focus_ix):
+        beatoffset = self.beatinsong - self.beatinsong[focus_ix]
+        len_context_pre = self.params.len_context_pre
+        epsilon = self.params.epsilon
+        #N.B. for some reason, np.where returns a tuple e.g: (array([], dtype=int64),)
+        if self.params.include_focus_pre:
+            context_pre_ixs = np.where(np.logical_and(beatoffset>=-(len_context_pre + epsilon), beatoffset<=0))[0]
+        else:
+            context_pre_ixs = np.where(np.logical_and(beatoffset>=-(len_context_pre + epsilon), beatoffset<0))[0]
+        
+        if self.params.partial_notes:
+            if focus_ix>0: #skip first, has no context_pre
+                #check wether context start at beginning of a note. If not, add previous note
+                #print(context_pre[0][0],beatoffset[context_pre[0][0]],len_context)
+                if context_pre_ixs.shape[0]>0:
+                    if np.abs( beatoffset[context_pre_ixs[0]] + len_context_pre ) > epsilon:
+                        if context_pre_ixs[0]-1 >= 0:
+                            context_pre_ixs = np.insert(context_pre_ixs, 0, context_pre_ixs[0]-1)
+                else:
+                    context_pre_ixs = np.insert(context_pre_ixs, 0, focus_ix-1) #if context was empty, add previous note anyway        
+        
+        return context_pre_ixs
+
+    def computePostContextFixed(self, focus_ix):
+        beatoffset = self.beatinsong - self.beatinsong[focus_ix]
+        slicelength = self.beatinsong_next[focus_ix] - self.beatinsong[focus_ix]
+        beatoffset_next = beatoffset - slicelength #set onset of next note to 0.0
+        len_context_post = self.params.len_context_post
+        epsilon = self.params.epsilon
+        #N.B. for some reason, np.where returns a tuple e.g: (array([], dtype=int64),)
+        if self.params.include_focus_post:
+            context_post_ixs = np.where(np.logical_and(beatoffset>=0, beatoffset_next<(len_context_post - epsilon)))[0]   
+        else: # ['both', 'post']
+            #start context at END of note
+            #do not include the note that starts AT the end of the context
+            context_post_ixs = np.where(np.logical_and(beatoffset_next>=0, beatoffset_next<(len_context_post - epsilon)))[0]
+        return context_post_ixs
+
+    def computePreContextAuto(self, focus_ix):
+        context_pre_ixs = []
+        if self.params.include_focus_pre:
+            context_pre_ixs.append(focus_ix)
+        ixadd = focus_ix - 1
+        while True:
+            if ixadd < 0:
+                break
+            context_pre_ixs.append(ixadd)
+            if np.sum(self.wpc.weightedpitch[ixadd]) >= 1.0-self.params.epsilon or np.sum(self.wpc.weightedpitch[ixadd]) > np.sum(self.wpc.weightedpitch[focus_ix]):
+                break
+            ixadd = ixadd - 1
+        context_pre_ixs.reverse()
+        context_pre_ixs = np.array(context_pre_ixs, dtype=int)
+        return context_pre_ixs
+
+    def computePostContextAuto(self, focus_ix):
+        context_post_ixs = []
+        if self.params.include_focus_post:
+            context_post_ixs.append(focus_ix)
+        ixadd = focus_ix + 1
+        while True:
+            if ixadd >= len(self.wpc.ixs):
+                break
+            context_post_ixs.append(ixadd)
+            if np.sum(self.wpc.weightedpitch[ixadd]) >= 1.0-self.params.epsilon or np.sum(self.wpc.weightedpitch[ixadd]) > np.sum(self.wpc.weightedpitch[focus_ix]):
+                break
+            ixadd = ixadd + 1
+        context_post_ixs = np.array(context_post_ixs, dtype=int)
+        return context_post_ixs
+
+    def computeDistanceWeightsPre(self, context_pre_ixs, focus_ix):
+        beatoffset_previous = self.beatinsong - self.beatinsong[focus_ix]
+        mindist = self.params.min_distance_weight_pre
+        len_context_pre = self.computeContextLengthPre(context_pre_ixs)
+        distance_weights_pre  = beatoffset_previous[context_pre_ixs] * (1.0-mindist)/len_context_pre + 1.0
+        #set negative weights to zero:
+        distance_weights_pre[distance_weights_pre<0.0] = 0.0
+        return distance_weights_pre
+
+    def computeDistanceWeightsPost(self, context_post_ixs, focus_ix):
+        beatoffset = self.beatinsong - self.beatinsong[focus_ix]
+        slicelength = self.beatinsong_next[focus_ix] - self.beatinsong[focus_ix]
+        beatoffset_next = beatoffset - slicelength #set onset of next note to 0.0
+        mindist = self.params.min_distance_weight_post
+        len_context_post = self.computeContextLengthPost(context_post_ixs)
+        distance_weights_post = beatoffset_next[context_post_ixs] * -(1.0-mindist)/len_context_post + 1.0
+        #set negative weights to zero:
+        distance_weights_post[distance_weights_post<0.0] = 0.0
+        #set max weight to one (if focus note in post context, weight of focus note > 1.0)
+        distance_weights_post[distance_weights_post>1.0] = 1.0
+        return distance_weights_post
+
+    def computeContextLength(self, context_ixs):
+        if len(context_ixs) > 0:
+            len_context = self.beatinsong_next[context_ixs[-1]] - self.beatinsong[context_ixs[0]]
+        else:
+            len_context = 0.0
+        return len_context
+
+    def computeContextLengthPre(self, context_ixs):
+        if self.params.len_context_pre_auto:
+            return self.computeContextLength(context_ixs)
+        else:
+            return self.params.len_context_pre
+
+    def computeContextLengthPost(self, context_ixs):
+        if self.params.len_context_post_auto:
+            return self.computeContextLength(context_ixs)
+        else:
+            return self.params.len_context_post
+
 
 #weighted pitch contect
 class PitchContext:
@@ -29,7 +283,7 @@ class PitchContext:
     accumulateWeight : boolean, default=False
         If true, represent the metric weight of a note by the sum of all metric weights
         in the beatstrength grid in the span of the note.
-    context_type : one of 'scoretime', 'beats', 'notes', or 'auto', default='beats'
+    context_type : one of 'scoretime', 'beats', 'notes', default='beats'
         scoretime: len_context is a float in units of quarterLength (length of one quarter note)
         beats: len_context is a float in units of beat (length of beat as computed by music21)
         notes: len_context is an integer, number of notes
@@ -60,10 +314,6 @@ class PitchContext:
     partial_notes : boolean, default=True
         If True, extend the PRE conext to the START of the first note within the context.
         This has consequences if the pre context starts IN a note.
-    normalize : boolean, default=False
-        If True, normalize the weighted pitch context vector such that the values add up to 1.0.
-        epsilon : float, default=1e-4
-        Used for floating point comparisons.
 
     Attributes
     ----------
@@ -91,146 +341,26 @@ class PitchContext:
     def __init__(self, song, **inparams):
         self.song = song
         #contains params for actual contents of weightedpitch vector and weightedpitch context vector
-        self.params = self.createDefaultParams()
-        self.setparams(inparams)
+        self.params = PCParameters(**inparams)
         #store for quick use
-        self.epsilon = self.params['epsilon']
+        self.epsilon = self.params.epsilon
+        #do the computations
+        #First compute a weight for each note
         self.weightedpitch, self.ixs = self.computeWeightedPitch()
-        #compute some extra features. LENGTH: self.ixs
-        self.songlength_beat = float(sum([Fraction(length) for length in self.song.mtcsong['features']['beatfraction']])) #length of the song in beats
-        self.beatinsong = np.array([self.song.mtcsong['features']['beatinsong_float'][ix] for ix in self.ixs])
-        self.beatinsong_next = np.append(self.beatinsong[1:],self.songlength_beat+self.beatinsong[0]) #first beatinsong might be negative (upbeat)
-        self.songlength_scoretime = float(sum([Fraction(length) for length in self.song.mtcsong['features']['duration_frac']])) #length of the song in beats        
-        self.scoretimeinsong_next = np.cumsum(self.song.mtcsong['features']['duration'])
-        self.scoretimeinsong = np.append([0], self.scoretimeinsong_next[:-1])
+        #create the proper computePitchContext object
+        self.cpc = self.createComputePitchContext()
         #compute the pitch context
         self.pitchcontext, self.contexts_pre, self.contexts_post = self.computePitchContext()
 
-    def createDefaultParams(self):
-        """Return a dictionary with default parameters.
-        
-        Returns
-        ------
-        dictionary
-            A Dictionary with all parameters and default values:
-            ```{
-                'removeRepeats' : True,
-                'syncopes' : False,
-                'metric_weights' : 'beatstrength',
-                'accumulateWeight' : False,
-                'context_type' : 'beats',
-                'len_context' : None,
-                'use_metric_weights' : True,
-                'use_distance_weights' : True,
-                'min_distance_weight' : 0.0,
-                'include_focus' : True,
-                'partial_notes' : True,
-                'normalize' : False,
-                'epsilon' : 1e-4,
-            }```
-        """
-
-        params = {
-            'removeRepeats' : True,
-            'syncopes' : False,
-            'metric_weights' : 'beatstrength',
-            'accumulateWeight' : False,
-            'context_type' : 'beats',
-            'len_context' : None,
-            'use_metric_weights' : True,
-            'use_distance_weights' : True,
-            'min_distance_weight' : 0.0,
-            'include_focus' : True,
-            'partial_notes' : True,
-            'normalize' : False,
-            'epsilon' : 1e-4,
-        }
-        return params
-    
-    def setparams(self, params):
-        """Set parameters in `params`, and split pre and post context values.
-
-        Parameters
-        ----------
-        params : dict
-            key value pairs for the parameters to change
-        """
-        for key in params.keys():
-            if key not in self.params:
-                print(f"Warning: Unused parameter: {key}")
-            else:
-                self.params[key] = params[key]
-
-        #helper functions for quicker access to params
-        def _setp(key,value):
-            self.params[key] = value
-        def _getp(key):
-            return self.params[key]
-
-        #split params that possibly refer to preceding and foloing context
-
-        #how to determine length of context
-        if type(_getp('len_context')) == tuple or type(_getp('len_context')) == list:
-            if _getp('len_context')[0] == 'auto':
-                _setp('len_context_pre_auto', True)
-                _setp('len_context_pre', None)
-            else: # pre not auto
-                _setp('len_context_pre', _getp('len_context')[0])
-                _setp('len_context_pre_auto', False)
-            if _getp('len_context')[1] == 'auto':
-                _setp('len_context_post_auto', True)
-                _setp('len_context_post', None)
-            else: # post not auto
-                _setp('len_context_post', _getp('len_context')[1])
-                _setp('len_context_post_auto', False)
-        elif _getp('len_context') == 'auto': #not a tuple, both auto
-            _setp('len_context_pre_auto', True)
-            _setp('len_context_post_auto', True)
-            _setp('len_context_pre', None)
-            _setp('len_context_post', None)
-        else: #not a tuple, beat values
-            _setp('len_context_pre', _getp('len_context'))
-            _setp('len_context_post', _getp('len_context'))
-            _setp('len_context_pre_auto', False)
-            _setp('len_context_post_auto', False)
-        _setp('len_context', None)
-
-        #use metric weights
-        if type(_getp('use_metric_weights')) == tuple or type(_getp('use_metric_weights')) == list:
-            _setp('use_metric_weights_pre', _getp('use_metric_weights')[0])
-            _setp('use_metric_weights_post', _getp('use_metric_weights')[1])
+    def createComputePitchContext(self):
+        if self.params.context_type == 'beats':
+            return ComputePitchContextBeats(self)
+        elif self.params.context_type == 'notes':
+            return ComputePitchContextNotes(self)
+        elif self.params.context_type == 'scoretime':
+            return ComputePitchContextSoretime(self)
         else:
-            _setp('use_metric_weights_pre', _getp('use_metric_weights'))
-            _setp('use_metric_weights_post', _getp('use_metric_weights'))
-        _setp('use_metric_weights', None)
-
-        #use distance weights
-        if type(_getp('use_distance_weights')) == tuple or type(_getp('use_distance_weights')) == list:
-            _setp('use_distance_weights_pre', _getp('use_distance_weights')[0])
-            _setp('use_distance_weights_post', _getp('use_distance_weights')[1])
-        else:
-            _setp('use_distance_weights_pre', _getp('use_distance_weights'))
-            _setp('use_distance_weights_post', _getp('use_distance_weights'))
-        _setp('use_distance_weights', None)
-
-        #minimal distance weight (at context boundary)
-        if type(_getp('min_distance_weight')) == tuple or type(_getp('min_distance_weight')) == list:
-            _setp('min_distance_weight_pre', _getp('min_distance_weight')[0])
-            _setp('min_distance_weight_post', _getp('min_distance_weight')[1])
-        else:
-            _setp('min_distance_weight_pre', _getp('min_distance_weight'))
-            _setp('min_distance_weight_post', _getp('min_distance_weight'))
-        _setp('min_distance_weight', None)
-
-        if type(_getp('include_focus')) == tuple or type(_getp('include_focus')) == list:
-            _setp('include_focus_pre', _getp('include_focus')[0])
-            _setp('include_focus_post', _getp('include_focus')[1])
-        else:
-            _setp('include_focus_pre', _getp('include_focus'))
-            _setp('include_focus_post', _getp('include_focus'))
-        _setp('include_focus', None)
-
-        print(self.params)
+            print("Error: Unsupported context type: " + self.params.context_type)
 
     def computeWeightedPitch(self):
         """Computes for every note a pitchvector (base40) with the (metric) weight of the note in the corresponding pitch bin.
@@ -243,10 +373,10 @@ class PitchContext:
             appropriate pitch in base 40 encoding.
         """
         #put param values in local variables for readibility
-        removeRepeats = self.params['removeRepeats']
-        syncopes = self.params['syncopes']
-        metric_weights = self.params['metric_weights']
-        accumulateWeight = self.params['accumulateWeight']
+        removeRepeats = self.params.remove_repeats
+        syncopes = self.params.syncopes
+        metric_weights = self.params.metric_weights
+        accumulateWeight = self.params.accumulate_weight
 
         songinstance = self.song
         song = self.song.mtcsong
@@ -315,247 +445,6 @@ class PitchContext:
             beatinsong_float[ix] = float(Fraction(song['features']['beatinsong'][song_ix]))
         return beatinsong_float
 
-    def _computePreContextBeats(self, focus_ix):
-        beatoffset = self.beatinsong - self.beatinsong[focus_ix]
-        len_context_pre = self.params['len_context_pre']
-        epsilon = self.params['epsilon']
-        #N.B. for some reason, np.where returns a tuple e.g: (array([], dtype=int64),)
-        if self.params['include_focus_pre']:
-            context_pre_ixs = np.where(np.logical_and(beatoffset>=-(len_context_pre + epsilon), beatoffset<=0))[0]
-        else:
-            context_pre_ixs = np.where(np.logical_and(beatoffset>=-(len_context_pre + epsilon), beatoffset<0))[0]
-        
-        if self.params['partial_notes']:
-            if focus_ix>0: #skip first, has no context_pre
-                #check wether context start at beginning of a note. If not, add previous note
-                #print(context_pre[0][0],beatoffset[context_pre[0][0]],len_context)
-                if context_pre_ixs.shape[0]>0:
-                    if np.abs( beatoffset[context_pre_ixs[0]] + len_context_pre ) > epsilon:
-                        if context_pre_ixs[0]-1 >= 0:
-                            context_pre_ixs = np.insert(context_pre_ixs, 0, context_pre_ixs[0]-1)
-                else:
-                    context_pre_ixs = np.insert(context_pre_ixs, 0, focus_ix-1) #if context was empty, add previous note anyway        
-        
-        return context_pre_ixs
-
-    def _computePostContextBeats(self, focus_ix):
-        beatoffset = self.beatinsong - self.beatinsong[focus_ix]
-        slicelength = self.beatinsong_next[focus_ix] - self.beatinsong[focus_ix]
-        beatoffset_next = beatoffset - slicelength #set onset of next note to 0.0
-        len_context_post = self.params['len_context_post']
-        epsilon = self.params['epsilon']
-        #N.B. for some reason, np.where returns a tuple e.g: (array([], dtype=int64),)
-        if self.params['include_focus_post']:
-            context_post_ixs = np.where(np.logical_and(beatoffset>=0, beatoffset_next<(len_context_post - epsilon)))[0]   
-        else: # ['both', 'post']
-            #start context at END of note
-            #do not include the note that starts AT the end of the context
-            context_post_ixs = np.where(np.logical_and(beatoffset_next>=0, beatoffset_next<(len_context_post - epsilon)))[0]
-        return context_post_ixs
-
-    def _computePreContextBeatsAuto(self, focus_ix):
-        context_pre_ixs = []
-        if self.params['include_focus_pre']:
-            context_pre_ixs.append(focus_ix)
-        ixadd = focus_ix - 1
-        while True:
-            if ixadd < 0:
-                break
-            context_pre_ixs.append(ixadd)
-            if np.sum(self.weightedpitch[ixadd]) >= 1.0-self.epsilon or np.sum(self.weightedpitch[ixadd]) > np.sum(self.weightedpitch[focus_ix]):
-                break
-            ixadd = ixadd - 1
-        context_pre_ixs.reverse()
-        context_pre_ixs = np.array(context_pre_ixs, dtype=int)
-        return context_pre_ixs
-
-    def _computePostContextBeatsAuto(self, focus_ix):
-        context_post_ixs = []
-        if self.params['include_focus_post']:
-            context_post_ixs.append(focus_ix)
-        ixadd = focus_ix + 1
-        while True:
-            if ixadd >= len(self.ixs):
-                break
-            context_post_ixs.append(ixadd)
-            if np.sum(self.weightedpitch[ixadd]) >= 1.0-self.epsilon or np.sum(self.weightedpitch[ixadd]) > np.sum(self.weightedpitch[focus_ix]):
-                break
-            ixadd = ixadd + 1
-        context_post_ixs = np.array(context_post_ixs, dtype=int)
-        return context_post_ixs
-
-    def _computePreContextScoretime(self, focus_ix):
-        return []
-
-    def _computePostContextScoretime(self, focus_ix):
-        return []
-
-    def _computePreContextScoretimeAuto(self, focus_ix):
-        return []
-
-    def _computePostContextScoretimeAuto(self, focus_ix):
-        return []
-
-    def _computePreContextNotes(self, focus_ix):
-        return []
-
-    def _computePostContextNotes(self, focus_ix):
-        return []
-
-    def _computePreContextNotesAuto(self, focus_ix):
-        return []
-
-    def _computePostContextNotesAuto(self, focus_ix):
-        return []
-
-    def _computePreContext(self, focus_ix): #selector
-        ctype = self.params['context_type']
-        auto = self.params['len_context_pre_auto']
-        if ctype == 'scoretime':
-            if auto:
-                return self._computePreContextScoretimeAuto(focus_ix)
-            else:
-                return self._computePreContextScoretime(focus_ix)
-        elif ctype == 'beats':
-            if auto:
-                return self._computePreContextBeatsAuto(focus_ix)
-            else:
-                return self._computePreContextBeats(focus_ix)
-        elif ctype == 'notes':
-            if auto:
-                return self._computePreContextNotesAuto(focus_ix)
-            else:
-                return self._computePreContextNotes(focus_ix)
-        else:
-            print("Warning: unknown context type for preceding context: "+ctype)
-            return []
-
-    def _computePostContext(self, focus_ix): #selector
-        ctype = self.params['context_type']
-        auto = self.params['len_context_post_auto']
-        if ctype == 'scoretime':
-            if auto:
-                return self._computePostContextScoretimeAuto(focus_ix)
-            else:
-                return self._computePostContextScoretime(focus_ix)
-        elif ctype == 'beats':
-            if auto:
-                return self._computePostContextBeatsAuto(focus_ix)
-            else:
-                return self._computePostContextBeats(focus_ix)
-        elif ctype == 'notes':
-            if auto:
-                return self._computePostContextNotesAuto(focus_ix)
-            else:
-                return self._computePostContextNotes(focus_ix)
-        else:
-            print("Warning: unknown context type for following context: "+ctype)
-            return []
-
-    def _computeDistanceWeightsPreBeats(self, context_pre_ixs, focus_ix):
-        beatoffset_previous = self.beatinsong - self.beatinsong[focus_ix]
-        mindist = self.params['min_distance_weight_pre']
-        len_context_pre = self._computeContextLength(context_pre_ixs)
-        distance_weights_pre  = beatoffset_previous[context_pre_ixs] * (1.0-mindist)/len_context_pre + 1.0
-        #set negative weights to zero:
-        distance_weights_pre[distance_weights_pre<0.0] = 0.0
-        return distance_weights_pre
-
-    def _computeDistanceWeightsPostBeats(self, context_post_ixs, focus_ix):
-        beatoffset = self.beatinsong - self.beatinsong[focus_ix]
-        slicelength = self.beatinsong_next[focus_ix] - self.beatinsong[focus_ix]
-        beatoffset_next = beatoffset - slicelength #set onset of next note to 0.0
-        mindist = self.params['min_distance_weight_post']
-        len_context_post = self._computeContextLength(context_post_ixs)
-        distance_weights_post = beatoffset_next[context_post_ixs] * -(1.0-mindist)/len_context_post + 1.0
-        #set negative weights to zero:
-        distance_weights_post[distance_weights_post<0.0] = 0.0
-        #set max weight to one (if focus note in post context, weight of focus note > 1.0)
-        distance_weights_post[distance_weights_post>1.0] = 1.0
-        return distance_weights_post
-
-    def _computeDistanceWeightsPreScoretime(self, context_pre_ixs, focus_ix):
-        pass
-
-    def _computeDistanceWeightsPostScoretime(self, context_post_ixs, focus_ix):
-        pass
-
-    def _computeDistanceWeightsPreNotes(self, context_pre_ixs, focus_ix):
-        pass
-
-    def _computeDistanceWeightsPostNotes(self, context_post_ixs, focus_ix):
-        pass
-
-    def _computeDistanceWeightsPreAuto(self, context_pre_ixs, focus_ix):
-        return self._computeDistanceWeightsPreBeats(context_pre_ixs, focus_ix)
-
-    def _computeDistanceWeightsPostAuto(self, context_post_ixs, focus_ix):
-        return self._computeDistanceWeightsPostBeats(context_post_ixs, focus_ix)
-
-    def _computeDistanceWeightsPre(self, context_pre_ixs, focus_ix):
-        if self.params['use_distance_weights_pre']:
-            ctype = self.params['context_type']
-            if ctype == 'scoretime':
-                return self._computeDistanceWeightsPreScoretime(context_pre_ixs, focus_ix)
-            elif ctype == 'beats':
-                return self._computeDistanceWeightsPreBeats(context_pre_ixs, focus_ix)
-            elif ctype == 'notes':
-                return self._computeDistanceWeightsPreNotes(context_pre_ixs, focus_ix)
-            elif ctype == 'auto':
-                return self._computeDistanceWeightsPreAuto(context_pre_ixs, focus_ix)
-            else:
-                print("Warning: unknown context type for preceding context: " + str(ctype))
-                return np.ones((context_pre_ixs.shape))
-        else:
-            return np.ones((context_pre_ixs.shape))
-
-    def _computeDistanceWeightsPost(self, context_post_ixs, focus_ix):
-        if self.params['use_distance_weights_post']:
-            ctype = self.params['context_type']
-            if ctype == 'scoretime':
-                return self._computeDistanceWeightsPostScoretime(context_post_ixs, focus_ix)
-            elif ctype == 'beats':
-                return self._computeDistanceWeightsPostBeats(context_post_ixs, focus_ix)
-            elif ctype == 'notes':
-                return self._computeDistanceWeightsPostNotes(context_post_ixs, focus_ix)
-            elif ctype == 'auto':
-                return self._computeDistanceWeightsPostAuto(context_post_ixs, focus_ix)
-            else:
-                print("Warning: unknown context type for preceding context: " + str(ctype))
-                return np.ones((context_post_ixs.shape))
-        else:
-            return np.ones((context_post_ixs.shape))
-
-    def _computeContextLengthScoretime(self, context_post_ixs):
-        return 0
-    
-    def _computeContextLengthBeats(self, context_ixs):
-        if len(context_ixs) > 0:
-            len_context = self.beatinsong_next[context_ixs[-1]] - self.beatinsong[context_ixs[0]]
-        else:
-            len_context = 0.0
-        return len_context
-
-    def _computeContextLengthNotes(self, context_ixs):
-        return 0
-    
-    def _computeContextLengthAuto(self, context_ixs):
-        return 0
-
-    def _computeContextLength(self, context_ixs):
-        ctype = self.params['context_type']
-        if ctype == 'scoretime':
-            return self._computeContextLengthScoretime(context_ixs)
-        elif ctype == 'beats':
-            return self._computeContextLengthBeats(context_ixs)
-        elif ctype == 'notes':
-            return self._computeContextLengthNotes(context_ixs)
-        elif ctype == 'auto':
-            return self._computeContextLengthAuto(context_ixs)
-        else:
-            print("Warning: unknown context type: " + str(ctype))
-            return 0.0
-
     def computePitchContext(self):   
         """Compute for each note a pitchcontext vector
 
@@ -567,22 +456,10 @@ class PitchContext:
             40 pitches in the following context [40:]. Pitches are in base40 encoding.
         """
         #put param values in local variables for readibility
-        len_context_pre = self.params['len_context_pre']
-        len_context_post = self.params['len_context_post']
-        len_context_pre_auto = self.params['len_context_pre_auto']
-        len_context_post_auto = self.params['len_context_post_auto']
-        use_metric_weights_pre = self.params['use_metric_weights_pre']
-        use_metric_weights_post = self.params['use_metric_weights_post']
-        use_distance_weights_pre = self.params['use_distance_weights_pre']
-        use_distance_weights_post = self.params['use_distance_weights_post']
-        min_distance_weight_pre = self.params['min_distance_weight_pre']
-        min_distance_weight_post = self.params['min_distance_weight_post']
-        include_focus = self.params['include_focus']
-        partial_notes = self.params['partial_notes']
-        normalize = self.params['normalize']
-        epsilon = self.params['epsilon']
-        
-        song = self.song.mtcsong
+        use_metric_weights_pre = self.params.use_metric_weights_pre
+        use_metric_weights_post = self.params.use_metric_weights_post
+        use_distance_weights_pre = self.params.use_distance_weights_pre
+        use_distance_weights_post = self.params.use_distance_weights_post
         
         #array to store the result
         pitchcontext = np.zeros( (len(self.ixs), 40 * 2) )
@@ -593,8 +470,8 @@ class PitchContext:
         
         for ix, songix in enumerate(self.ixs):
             #get context for the note (list of note indices)
-            context_pre_ixs = self._computePreContext(ix)
-            context_post_ixs = self._computePostContext(ix)
+            context_pre_ixs = self.cpc.computePreContext(ix)
+            context_post_ixs = self.cpc.computePostContext(ix)
 
             # print('context_pre', context_pre_ixs)
             # print('context_post', context_post_ixs)
@@ -603,9 +480,15 @@ class PitchContext:
             contexts_post.append(context_post_ixs)
 
             #compute distance-weights
-            distance_weights_pre = self._computeDistanceWeightsPre(context_pre_ixs, ix)
-            distance_weights_post = self._computeDistanceWeightsPost(context_post_ixs, ix)
+            distance_weights_pre = np.ones(context_pre_ixs.shape)
+            if use_distance_weights_pre:
+                distance_weights_pre = self.cpc.computeDistanceWeightsPre(context_pre_ixs, ix)
 
+            distance_weights_post = np.ones(context_post_ixs.shape)
+            if use_distance_weights_post:
+                distance_weights_post = self.cpc.computeDistanceWeightsPost(context_post_ixs, ix)
+
+            #set metric weights to 1 if not use_metric_weights
             metric_weights_pre = self.weightedpitch[context_pre_ixs]
             if not use_metric_weights_pre:
                 metric_weights_pre[metric_weights_pre>0] = 1.0
@@ -614,8 +497,11 @@ class PitchContext:
             if not use_metric_weights_post:
                 metric_weights_post[metric_weights_post>0] = 1.0
 
-            # print("ix", ix, ixs[ix])
-            # print("length_context_pre", length_context_pre)
+            # print("ix", ix, self.ixs[ix])
+            # print("context_pre_ixs", context_pre_ixs)
+            # print("distance_weights_pre", distance_weights_pre)
+            # print("metric_weights_pre", metric_weights_pre)
+            # print("self.weightedpitch[context_pre_ixs]", self.weightedpitch[context_pre_ixs])
             # print("length_context_post", length_context_post)
             # print("distance_weights_pre", distance_weights_pre)
             # print("distance_weights_post", distance_weights_post)
@@ -623,11 +509,6 @@ class PitchContext:
 
             pitchcontext_pre  = np.dot(distance_weights_pre, metric_weights_pre)
             pitchcontext_post = np.dot(distance_weights_post, metric_weights_post)
-            #normalize
-            
-            if normalize:
-                pitchcontext_pre /= np.sum(np.abs(pitchcontext_pre),axis=0)
-                pitchcontext_post /= np.sum(np.abs(pitchcontext_post),axis=0)
             
             #store result
             pitchcontext[ix,:40] = pitchcontext_pre
