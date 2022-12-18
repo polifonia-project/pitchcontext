@@ -59,6 +59,10 @@ with st.sidebar:
         step=0.5,
         value=1.0
     )
+    partialnotes_check = st.checkbox(
+        "Include partial notes in preceding context.",
+        value=True
+    )
     removerep_check = st.checkbox(
         "Merge repeated notes.",
         value=True
@@ -125,6 +129,7 @@ wpc = PitchContext(
     syncopes=syncopes,
     remove_repeats=removerep_check,
     accumulate_weight=accweight_check,
+    partial_notes=partialnotes_check,
     context_type='beats',
     len_context_pre=len_context_pre,
     len_context_post=len_context_post,
@@ -154,21 +159,10 @@ fig_cons, ax_cons = plotArray(consonance_context, wpc.ixs, '', '')
 plt.axhline(y=cons_threshold, color='r', linestyle=':')
 st.write(fig_cons)
 
-# @st.cache
-# def createScore(outputdir):
-#     pngfn = song.createPNG(outputdir)
-#     return pngfn
-
-# pngfn = createScore('/Users/krane108/tmp/')
-# image = Image.open(pngfn)
-# st.image(image)
-
 cdict = consonance2colordict(consonance_context, wpc.ixs, percentile_slider, song.getSongLength())
 pngfn = song.createColoredPNG(cdict, '/tmp', showfilename=False)
 image = Image.open(pngfn)
 st.image(image, output_format='PNG')
-
-#wpc.printReport(novelty=novelty, note_ix=33)
 
 st.write(asdict(wpc.params))
 
