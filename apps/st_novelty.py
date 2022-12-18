@@ -1,3 +1,4 @@
+import argparse
 import json
 from fractions import Fraction
 from PIL import Image
@@ -14,12 +15,22 @@ from pitchcontext.models import computeConsonance, computeNovelty
 
 from pitchcontext.base40 import base40naturalslist
 
-path_to_krn = 'NLB147059_01.krn'
-with open('NLB147059_01.json','r') as f:
-    mtcsong = json.load(f)
-
-song = Song(mtcsong, path_to_krn)
-songlength_beat = float(sum([Fraction(length) for length in song.mtcsong['features']['beatfraction']]))
+parser = argparse.ArgumentParser(description='Visualize the novelty of following context given preceding context.')
+parser.add_argument(
+    '-krnpath',
+    dest='krnpath',
+    help='Path to **kern files.',
+    default="/Users/krane108/data/MTC/MTC-FS-INST-2.0/krn",
+)
+parser.add_argument(
+    '-jsonpath',
+    dest='jsonpath',
+    help='Path to json files (in MTCFeatures format).',
+    default="/Users/krane108/data/MTCFeatures/MTC-FS-inst-2.0/json",
+)
+args = parser.parse_args()
+krnpath = args.krnpath
+jsonpath = args.jsonpath
 
 st.title("Novelty")
 
@@ -28,15 +39,8 @@ with st.sidebar:
         label="Song ID",
         value="NLB147059_01"
     )
-    krnpath = st.text_input(
-        label="Path to **kern files",
-        value="/Users/krane108/data/MTC/MTC-FS-INST-2.0/krn"
-    )
-    jsonpath = st.text_input(
-        label="Path to MTCFeatures .json files",
-        value="/Users/krane108/data/MTCFeatures/MTC-FS-inst-2.0/json"
-    )
 
+    #Load song here. The song is needed to compute the song length.
     krnfilename = os.path.join(krnpath, songid+'.krn')
     jsonfilename = os.path.join(jsonpath, songid+'.json')
     with open(jsonfilename,'r') as f:

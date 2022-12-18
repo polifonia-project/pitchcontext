@@ -1,3 +1,4 @@
+import argparse
 import json
 from fractions import Fraction
 from PIL import Image
@@ -14,6 +15,23 @@ from pitchcontext.visualize import novelty2colordict, consonance2colordict, plot
 from pitchcontext.models import computeConsonance, computeNovelty
 from pitchcontext.base40 import base40naturalslist
 
+parser = argparse.ArgumentParser(description='Visualize the consonance of the focus note within its context.')
+parser.add_argument(
+    '-krnpath',
+    dest='krnpath',
+    help='Path to **kern files.',
+    default="/Users/krane108/data/MTC/MTC-FS-INST-2.0/krn",
+)
+parser.add_argument(
+    '-jsonpath',
+    dest='jsonpath',
+    help='Path to json files (in MTCFeatures format).',
+    default="/Users/krane108/data/MTCFeatures/MTC-FS-inst-2.0/json",
+)
+args = parser.parse_args()
+krnpath = args.krnpath
+jsonpath = args.jsonpath
+
 st.title("Consonance")
 
 with st.sidebar:
@@ -21,16 +39,8 @@ with st.sidebar:
         label="Song ID",
         value="NLB147059_01"
     )
-    krnpath = st.text_input(
-        label="Path to **kern files",
-        value="/Users/krane108/data/MTC/MTC-FS-INST-2.0/krn"
-    )
-    jsonpath = st.text_input(
-        label="Path to MTCFeatures .json files",
-        value="/Users/krane108/data/MTCFeatures/MTC-FS-inst-2.0/json"
-    )
 
-    #we need to do this here, because the song is needed to set pre_c_slider and post_c_slider max
+    #we need to load the song here, because the song is needed to set pre_c_slider and post_c_slider max
     krnfilename = os.path.join(krnpath, songid+'.krn')
     jsonfilename = os.path.join(jsonpath, songid+'.json')
     with open(jsonfilename,'r') as f:
