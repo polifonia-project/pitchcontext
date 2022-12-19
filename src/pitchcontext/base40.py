@@ -1,3 +1,5 @@
+"""Provides a mapping from base40 pitch encoding to textual pitch representation. For one octave only."""
+
 base40 = {
     0:"Cbb",
     1:"Cb",

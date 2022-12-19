@@ -1,3 +1,5 @@
+"""Provides class Cong, which encapsulates details about the melodic data."""
+
 import copy
 from fractions import Fraction
 from math import gcd

@@ -1,3 +1,6 @@
+"""Class PitchContext, which organizes computation of pitch context vectors by combining a Song and a class derived from ComputePitchContext.
+This is the only class publicly available to the user."""
+
 from __future__ import annotations
 
 from fractions import Fraction

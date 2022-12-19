@@ -1,3 +1,5 @@
+"""Provides methods for visualialization of data and results."""
+
 import numpy as np
 from matplotlib import pyplot as plt
 

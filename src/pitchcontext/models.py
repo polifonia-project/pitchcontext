@@ -1,6 +1,4 @@
-"""
-Models using the weighted pitch context vector.
-"""
+"""Models using the weighted pitch context vector."""
 
 import numpy as np
 from numpy.linalg import norm

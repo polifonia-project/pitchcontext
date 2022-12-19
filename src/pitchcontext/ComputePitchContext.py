@@ -1,3 +1,8 @@
+"""Classes to compute the preceding and following contexts for a focus note.
+
+A concrete model inherits from the abstract class ComputePitchContext.
+"""
+
 from abc import ABC, abstractmethod
 from fractions import Fraction
 from typing import TYPE_CHECKING

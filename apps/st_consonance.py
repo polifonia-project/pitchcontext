@@ -1,3 +1,10 @@
+"""Provides a user interface for exploring consonance model
+
+Run as:
+
+$ streamlit run st_consonance.py -krnpath <path_to_kern_files> -jsonpath <path_to_json_files>
+"""
+
 import argparse
 import json
 from fractions import Fraction

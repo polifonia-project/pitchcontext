@@ -1,3 +1,5 @@
+"""Class to manage parameter configuration."""
+
 from dataclasses import dataclass
 import typing
 
