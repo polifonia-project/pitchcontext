@@ -7,9 +7,11 @@ Library for melody analysis based on pitch context vectors.
 - kernfiles and corresponding melodic features available
 
 ## Installation
+Use the provided pyproject.toml and poetry. In root of the rep do:
 ```
-pip install pitchcontext
+poetry install
 ```
+This creates a virtual environment with pitchcontext installed.
 
 ## Examples
 Requires a Python3 environment with both pitchcontext and streamlit installed.
