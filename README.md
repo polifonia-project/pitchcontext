@@ -6,7 +6,7 @@ Library for melody analysis based on pitch context vectors.
 - convert (ImageMagick) installed and in command line path
 - kernfiles and corresponding melodic features available
 
-## Installation;
+## Installation
 ```
 pip install pitchcontext
 ```
