@@ -349,8 +349,10 @@ class Song:
         line = line.replace("\\include \"lilypond-book-preamble.ly\"","")
         return line
     
-    def repairLy(self, filename):
+    def formatAndRepairLy(self, filename):
         """Go over a lilypond file, and correct the lines (see `self.repairLyline`).
+        Clear tagline.
+        Set indent of first system to 0.
 
         Parameters
         ----------
@@ -359,7 +361,7 @@ class Song:
         """
         with open(filename,'r') as f:
             lines = [self.repairLyline(l) for l in f.readlines()]
-        lines = lines + [ f'\paper {{ tagline = "" }}']
+        lines = lines + [ f'\paper {{ tagline = "" \nindent=0}}']
         with open(filename,'w') as f:
             f.writelines(lines)
 
@@ -404,7 +406,7 @@ class Song:
             filebasename = self.mtcsong['id']
         s = self.getColoredSong(colordict)
         s.write('lily', os.path.join(outputpath, filebasename+'.ly'))
-        self.repairLy(os.path.join(outputpath, filebasename+'.ly'))
+        self.formatAndRepairLy(os.path.join(outputpath, filebasename+'.ly'))
         if showfilename:
             self.insertFilenameLy(os.path.join(outputpath, filebasename+'.ly'))
         output = subprocess.run(["lilypond", os.path.join(outputpath, filebasename+'.ly')], cwd=outputpath, capture_output=True)
