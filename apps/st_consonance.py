@@ -9,6 +9,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import streamlit as st
+import streamlit.components.v1 as components
 
 from pitchcontext import Song, PitchContext
 from pitchcontext.visualize import novelty2colordict, consonance2colordict, plotArray
@@ -32,7 +33,8 @@ args = parser.parse_args()
 krnpath = args.krnpath
 jsonpath = args.jsonpath
 
-st.title("Consonance")
+st.set_page_config(layout="wide")
+col1, col2 = st.columns([2,1])
 
 with st.sidebar:
     songid = st.text_input(
@@ -156,45 +158,50 @@ wpc = PitchContext(
     min_distance_weight_post=mindistw_post_slider,
 )
 
-fig_pre, ax_pre = plt.subplots(figsize=(10,2))
-sns.heatmap(wpc.pitchcontext[:,:40].T, ax=ax_pre, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
-ax_pre.invert_yaxis()
-plt.title('Pitchcontext vectors preceding context')
-plt.xlabel('Note index')
-plt.ylabel('Pitch')
-plt.yticks(rotation=0)
-st.write(fig_pre)
-
-fig_post, ax_post = plt.subplots(figsize=(10,2))
-sns.heatmap(wpc.pitchcontext[:,40:].T, ax=ax_post, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
-ax_post.invert_yaxis()
-plt.title('Pitchcontext vectors following context')
-plt.xlabel('Note index')
-plt.ylabel('Pitch')
-plt.yticks(rotation=0)
-st.write(fig_post)
-
 consonance_pre, consonance_post, consonance_context  = computeConsonance(song, wpc, combiner=lambda x, y: (x+y)*0.5, normalizecontexts=True)
 #consonance_pre, consonance_post, consonance_context  = computeConsonance(song, wpc, combiner=np.minimum)
 
-cons_threshold = np.nanpercentile(consonance_context,percentile_slider)
-fig_cons, ax_cons = plotArray(consonance_context, wpc.ixs, '', '')
-plt.axhline(y=cons_threshold, color='r', linestyle=':')
-plt.title('Consonance of the focus note within its context')
-plt.xlabel('Note index')
-plt.ylabel('Consonance')
-st.write(fig_cons)
+with col1:
+    cons_threshold = np.nanpercentile(consonance_context,percentile_slider)
+    fig_cons, ax_cons = plotArray(consonance_context, wpc.ixs, '', '')
+    plt.axhline(y=cons_threshold, color='r', linestyle=':')
+    plt.title('Consonance of the focus note within its context')
+    plt.xlabel('Note index')
+    plt.ylabel('Consonance')
+    st.write(fig_cons)
 
-cdict = consonance2colordict(consonance_context, wpc.ixs, percentile_slider, song.getSongLength())
-pngfn = song.createColoredPNG(cdict, '/tmp', showfilename=False)
-image = Image.open(pngfn)
-st.image(image, output_format='PNG')
+    cdict = consonance2colordict(consonance_context, wpc.ixs, percentile_slider, song.getSongLength())
+    pngfn = song.createColoredPNG(cdict, '/tmp', showfilename=False)
+    image = Image.open(pngfn)
+    st.image(image, output_format='PNG', use_column_width=True)
 
-st.write(asdict(wpc.params))
+    fig_pre, ax_pre = plt.subplots(figsize=(10,2))
+    sns.heatmap(wpc.pitchcontext[:,:40].T, ax=ax_pre, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
+    ax_pre.invert_yaxis()
+    plt.title('Pitchcontext vectors preceding context')
+    plt.xlabel('Note index')
+    plt.ylabel('Pitch')
+    plt.yticks(rotation=0)
+    st.write(fig_pre)
 
-# wpc.printReport(
-#     consonance_context=consonance_context,
-#     consonance_pre=consonance_pre,
-#     consonance_post=consonance_post,
-#     maxbeatstrength=[song.mtcsong['features']['maxbeatstrength'][ix] for ix in wpc.ixs]
-# )
+    fig_post, ax_post = plt.subplots(figsize=(10,2))
+    sns.heatmap(wpc.pitchcontext[:,40:].T, ax=ax_post, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
+    ax_post.invert_yaxis()
+    plt.title('Pitchcontext vectors following context')
+    plt.xlabel('Note index')
+    plt.ylabel('Pitch')
+    plt.yticks(rotation=0)
+    st.write(fig_post)
+
+
+#st.write(asdict(wpc.params))
+
+with col2:
+    report = wpc.printReport(
+        consonance_context=consonance_context,
+        consonance_pre=consonance_pre,
+        consonance_post=consonance_post,
+        maxbeatstrength=[song.mtcsong['features']['maxbeatstrength'][ix] for ix in wpc.ixs]
+    )
+    components.html(f"<pre>{report}</pre>", height=650, scrolling=True)
+

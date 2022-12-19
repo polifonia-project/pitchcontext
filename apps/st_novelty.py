@@ -3,19 +3,20 @@ import json
 from fractions import Fraction
 from PIL import Image
 import os
+from dataclasses import asdict
 
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import streamlit as st
+import streamlit.components.v1 as components
 
 from pitchcontext import Song, PitchContext
 from pitchcontext.visualize import novelty2colordict, consonance2colordict, plotArray
 from pitchcontext.models import computeConsonance, computeNovelty
-
 from pitchcontext.base40 import base40naturalslist
 
-parser = argparse.ArgumentParser(description='Visualize the novelty of following context given preceding context.')
+parser = argparse.ArgumentParser(description='Visualize the novelty of following context given the preceding context.')
 parser.add_argument(
     '-krnpath',
     dest='krnpath',
@@ -32,7 +33,8 @@ args = parser.parse_args()
 krnpath = args.krnpath
 jsonpath = args.jsonpath
 
-st.title("Novelty")
+st.set_page_config(layout="wide")
+col1, col2 = st.columns([2,1])
 
 with st.sidebar:
     songid = st.text_input(
@@ -155,37 +157,44 @@ wpc = PitchContext(
     min_distance_weight_post=mindistw_post_slider,
 )
 
-fig_pre, ax_pre = plt.subplots(figsize=(10,2))
-sns.heatmap(wpc.pitchcontext[:,:40].T, ax=ax_pre, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
-ax_pre.invert_yaxis()
-plt.title('Pitchcontext vectors preceding context')
-plt.xlabel('Note index')
-plt.ylabel('Pitch')
-plt.yticks(rotation=0)
-st.write(fig_pre)
-
-fig_post, ax_post = plt.subplots(figsize=(10,2))
-sns.heatmap(wpc.pitchcontext[:,40:].T, ax=ax_post, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
-ax_post.invert_yaxis()
-plt.title('Pitchcontext vectors following context')
-plt.xlabel('Note index')
-plt.ylabel('Pitch')
-plt.yticks(rotation=0)
-st.write(fig_post)
-
 novelty = computeNovelty(song, wpc)
 
-nov_threshold = np.nanpercentile(novelty,percentile_slider)
-fig_nov, ax_nov = plotArray(novelty, wpc.ixs, '', '')
-plt.axhline(y=nov_threshold, color='r', linestyle=':')
-plt.title('Novelty of the following context with respect to the preceding context')
-plt.xlabel('Note index')
-plt.ylabel('Novelty')
-st.write(fig_nov)
+with col1:    
+    nov_threshold = np.nanpercentile(novelty,percentile_slider)
+    fig_nov, ax_nov = plotArray(novelty, wpc.ixs, '', '')
+    plt.axhline(y=nov_threshold, color='r', linestyle=':')
+    plt.title('Novelty of the following context with respect to the preceding context')
+    plt.xlabel('Note index')
+    plt.ylabel('Novelty')
+    st.write(fig_nov)
 
-cdict = novelty2colordict(novelty, wpc.ixs, percentile_slider, song.getSongLength())
-pngfn = song.createColoredPNG(cdict, '/Users/krane108/tmp/', showfilename=False)
-image = Image.open(pngfn)
-st.image(image)
+    cdict = novelty2colordict(novelty, wpc.ixs, percentile_slider, song.getSongLength())
+    pngfn = song.createColoredPNG(cdict, '/Users/krane108/tmp/', showfilename=False)
+    image = Image.open(pngfn)
+    st.image(image, output_format='PNG', use_column_width=True)
 
-#wpc.printReport(novelty=novelty, note_ix=33)
+    fig_pre, ax_pre = plt.subplots(figsize=(10,2))
+    sns.heatmap(wpc.pitchcontext[:,:40].T, ax=ax_pre, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
+    ax_pre.invert_yaxis()
+    plt.title('Pitchcontext vectors preceding context')
+    plt.xlabel('Note index')
+    plt.ylabel('Pitch')
+    plt.yticks(rotation=0)
+    st.write(fig_pre)
+
+    fig_post, ax_post = plt.subplots(figsize=(10,2))
+    sns.heatmap(wpc.pitchcontext[:,40:].T, ax=ax_post, xticklabels=wpc.ixs, yticklabels=base40naturalslist)
+    ax_post.invert_yaxis()
+    plt.title('Pitchcontext vectors following context')
+    plt.xlabel('Note index')
+    plt.ylabel('Pitch')
+    plt.yticks(rotation=0)
+    st.write(fig_post)
+
+with col2:
+    report = wpc.printReport(
+        novelty=novelty,
+        maxbeatstrength=[song.mtcsong['features']['maxbeatstrength'][ix] for ix in wpc.ixs]
+    )
+    components.html(f"<pre>{report}</pre>", height=650, scrolling=True)
+
