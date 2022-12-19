@@ -4,7 +4,7 @@ Library for melody analysis based on pitch context vectors.
 ## Prerequisites:
 - lilypond installed and in command line path
 - convert (ImageMagick) installed and in command line path
-- kernfiles and corresponding melodic features available
+- kernfiles and corresponding .json files with melodic features
 
 ## Installation
 Use the provided pyproject.toml and poetry. In root of the rep do:
