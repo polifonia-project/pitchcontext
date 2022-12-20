@@ -9,7 +9,7 @@ Library for melody analysis based on pitch context vectors.
 ## Installation
 Use the provided pyproject.toml and poetry. In root of the rep do:
 ```
-poetry install
+$ poetry install
 ```
 This creates a virtual environment with pitchcontext installed.
 
