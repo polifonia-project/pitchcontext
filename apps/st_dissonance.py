@@ -19,8 +19,8 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from pitchcontext import Song, PitchContext
-from pitchcontext.visualize import novelty2colordict, dissonance2colordict, plotArray
-from pitchcontext.models import computeDissonance, computeNovelty
+from pitchcontext.visualize import dissonance2colordict, plotArray
+from pitchcontext.models import computeDissonance
 from pitchcontext.base40 import base40naturalslist
 
 parser = argparse.ArgumentParser(description='Visualize the dissonance of the focus note within its context.')

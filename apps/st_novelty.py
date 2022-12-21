@@ -19,8 +19,8 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from pitchcontext import Song, PitchContext
-from pitchcontext.visualize import novelty2colordict, consonance2colordict, plotArray
-from pitchcontext.models import computeConsonance, computeNovelty
+from pitchcontext.visualize import novelty2colordict, plotArray
+from pitchcontext.models import computeNovelty
 from pitchcontext.base40 import base40naturalslist
 
 parser = argparse.ArgumentParser(description='Visualize the novelty of following context given the preceding context.')
