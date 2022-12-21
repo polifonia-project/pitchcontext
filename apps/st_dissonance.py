@@ -60,25 +60,25 @@ with st.sidebar:
 
     preauto_check = st.checkbox(
         "Determine preceding context automatically.",
-        value=False
+        value=True
     )
     postauto_check = st.checkbox(
         "Determine following context automatically",
-        value=False
+        value=True
     )
     pre_c_slider = st.slider(
         'Length of preceding context (beats)',
         min_value=0.0,
         max_value=songlength_beat,
         step=0.5,
-        value=1.0
+        value=0.0
     )
     post_c_slider = st.slider(
         'Length of following context (beats)',
         min_value=0.0,
         max_value=songlength_beat,
         step=0.5,
-        value=1.0
+        value=0.0
     )
     partialnotes_check = st.checkbox(
         "Include partial notes in preceding context.",
