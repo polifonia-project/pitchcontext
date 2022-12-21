@@ -180,7 +180,7 @@ class Song:
         assert len(self.mtcsong['features']['onsettick']) == len(onsets)
         #NB. If initial rests (e.g. NLB142326_01) all onsets are shifted wrt MTC
         for ix in range(len(onsets)):
-            if self.mtcsong['features']['onsettick'][ix] != onsets[ix] - onsets[0]:
+            if self.mtcsong['features']['onsettick'][ix] != onsets[ix] - onsets[0] and self.mtcsong['features']['onsettick'][ix] != onsets[ix]:
                 raise OnsetMismatchError("Onsets do not match. Probably due to a known bug in MTCFeatures.")
         return onsets
 
