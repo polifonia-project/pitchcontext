@@ -94,11 +94,11 @@ with st.sidebar:
     )
     include_focus_pre_check = st.checkbox(
         "Include Focus note in preceding context:",
-        value=True,
+        value=False,
     )
     include_focus_post_check = st.checkbox(
         "Include Focus note in following context:",
-        value=True,
+        value=False,
     )
     pre_usemw_check = st.checkbox(
         "Use metric weight for preceding context",
@@ -131,7 +131,7 @@ with st.sidebar:
         value=0.0
     )
     percentile_slider = st.slider(
-        'Percentile threshold for consonance.',
+        'Percentile threshold for dissonance.',
         min_value=0,
         max_value=100,
         step=1,
@@ -168,13 +168,16 @@ wpc = PitchContext(
 consonance_pre, consonance_post, consonance_context  = computeConsonance(song, wpc, combiner=lambda x, y: (x+y)*0.5, normalizecontexts=True)
 #consonance_pre, consonance_post, consonance_context  = computeConsonance(song, wpc, combiner=np.minimum)
 
+consonance_context = 1.0 - consonance_context
+
 with col1:
     cons_threshold = np.nanpercentile(consonance_context,percentile_slider)
     fig_cons, ax_cons = plotArray(consonance_context, wpc.ixs, '', '')
     plt.axhline(y=cons_threshold, color='r', linestyle=':')
-    plt.title('Consonance of the focus note within its context')
+    plt.title('Dissonance of the focus note within its context')
     plt.xlabel('Note index')
-    plt.ylabel('Consonance')
+    plt.ylabel('Dissonance')
+    plt.ylim(-0.05, 1.05)
     st.write(fig_cons)
 
     cdict = consonance2colordict(consonance_context, wpc.ixs, percentile_slider, song.getSongLength())
@@ -205,7 +208,7 @@ with col1:
 
 with col2:
     report = wpc.printReport(
-        consonance_context=consonance_context,
+        dissonance_context=consonance_context,
         consonance_pre=consonance_pre,
         consonance_post=consonance_post,
         maxbeatstrength=[song.mtcsong['features']['maxbeatstrength'][ix] for ix in wpc.ixs]
