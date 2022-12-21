@@ -1,8 +1,8 @@
-"""Provides a user interface for exploring consonance model
+"""Provides a user interface for exploring dissonance model
 
 Run as:
 
-$ streamlit run st_consonance.py -krnpath <path_to_kern_files> -jsonpath <path_to_json_files>
+$ streamlit run st_dissonance.py -krnpath <path_to_kern_files> -jsonpath <path_to_json_files>
 """
 
 import argparse
@@ -19,22 +19,22 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from pitchcontext import Song, PitchContext
-from pitchcontext.visualize import novelty2colordict, consonance2colordict, plotArray
-from pitchcontext.models import computeConsonance, computeNovelty
+from pitchcontext.visualize import novelty2colordict, dissonance2colordict, plotArray
+from pitchcontext.models import computeDissonance, computeNovelty
 from pitchcontext.base40 import base40naturalslist
 
-parser = argparse.ArgumentParser(description='Visualize the consonance of the focus note within its context.')
+parser = argparse.ArgumentParser(description='Visualize the dissonance of the focus note within its context.')
 parser.add_argument(
     '-krnpath',
     dest='krnpath',
     help='Path to **kern files.',
-    default="/Users/krane108/data/MTC/MTC-FS-INST-2.0/krn",
+    default="/Users/krane108/data/MELFeatures/mtcfsinst/krn",
 )
 parser.add_argument(
     '-jsonpath',
     dest='jsonpath',
     help='Path to json files (in MTCFeatures format).',
-    default="/Users/krane108/data/MTCFeatures/MTC-FS-inst-2.0/json",
+    default="/Users/krane108/data/MELFeatures/mtcfsinst/mtcjson",
 )
 args = parser.parse_args()
 krnpath = args.krnpath
@@ -135,7 +135,7 @@ with st.sidebar:
         min_value=0,
         max_value=100,
         step=1,
-        value=40
+        value=80
     )
 
 
@@ -165,14 +165,12 @@ wpc = PitchContext(
     min_distance_weight_post=mindistw_post_slider,
 )
 
-consonance_pre, consonance_post, consonance_context  = computeConsonance(song, wpc, combiner=lambda x, y: (x+y)*0.5, normalizecontexts=True)
-#consonance_pre, consonance_post, consonance_context  = computeConsonance(song, wpc, combiner=np.minimum)
-
-consonance_context = 1.0 - consonance_context
+dissonance_pre, dissonance_post, dissonance_context  = computeDissonance(song, wpc, combiner=lambda x, y: (x+y)*0.5, normalizecontexts=True)
+#dissonance_pre, dissonance_post, dissonance_context  = computeDissonance(song, wpc, combiner=np.minimum)
 
 with col1:
-    cons_threshold = np.nanpercentile(consonance_context,percentile_slider)
-    fig_cons, ax_cons = plotArray(consonance_context, wpc.ixs, '', '')
+    cons_threshold = np.nanpercentile(dissonance_context,percentile_slider)
+    fig_cons, ax_cons = plotArray(dissonance_context, wpc.ixs, '', '')
     plt.axhline(y=cons_threshold, color='r', linestyle=':')
     plt.title('Dissonance of the focus note within its context')
     plt.xlabel('Note index')
@@ -180,7 +178,7 @@ with col1:
     plt.ylim(-0.05, 1.05)
     st.write(fig_cons)
 
-    cdict = consonance2colordict(consonance_context, wpc.ixs, percentile_slider, song.getSongLength())
+    cdict = dissonance2colordict(dissonance_context, wpc.ixs, percentile_slider, song.getSongLength())
     pngfn = song.createColoredPNG(cdict, '/tmp', showfilename=False)
     image = Image.open(pngfn)
     st.image(image, output_format='PNG', use_column_width=True)
@@ -208,9 +206,9 @@ with col1:
 
 with col2:
     report = wpc.printReport(
-        dissonance_context=consonance_context,
-        consonance_pre=consonance_pre,
-        consonance_post=consonance_post,
+        dissonance_context=dissonance_context,
+        dissonance_pre=dissonance_pre,
+        dissonance_post=dissonance_post,
         maxbeatstrength=[song.mtcsong['features']['maxbeatstrength'][ix] for ix in wpc.ixs]
     )
     components.html(f"<pre>{report}</pre>", height=650, scrolling=True)

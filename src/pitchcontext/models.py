@@ -39,7 +39,7 @@ def sseDist(v1, v2):
 # minor sixth : Dp = 28
 # major sixth : Dp = 29
 
-def computeConsonance(
+def computeDissonance(
     song : Song, 
     wpc : PitchContext,
     combiner=np.maximum,
@@ -47,7 +47,7 @@ def computeConsonance(
     consonants40 = [0, 11, 12, 17, 23, 28, 29]
 ):
     """
-    Computes for each note the consonance of the note given its context.
+    Computes for each note the dissonance of the note given its context.
 
     Parameters
     ----------
@@ -56,28 +56,28 @@ def computeConsonance(
     wpd : WeightedPitchContext
         An instance of the WeightedPitchContext class, containing a weighted pitch context vector for each note.
     combiner : function of two 1D numpy arrays, default=numpy.maximum
-        Combines the consonance of preceding context and consonance of following context in one value.
+        Combines the dissonance of preceding context and dissonance of following context in one value.
         Default: take the maximum.
     normalizecontexts : bool, default=False
-        Normalize (sum-1.0) the context vectors before computing consonance
+        Normalize (sum-1.0) the context vectors before computing dissonance
     consonants : list of ints
         Intervals in base40 pitch encoding that are considered consonant.
     
     Returns
     -------
-    consonance_pre, consonance_post, consonance_context : numpy 1D arrays
-        with a consonance level for each note, respective the consonance within the preceding context, the
-        consonance within the following context, and the consonance within the full context.
+    dissonance_pre, dissonance_post, dissonance_context : numpy 1D arrays
+        with a dissonance level for each note, respective the dissonance within the preceding context, the
+        dissonance within the following context, and the dissonance within the full context.
     """
     song_length = len(wpc.ixs)
 
-    consonants = np.zeros( (40,) )
-    consonants[consonants40] = 1.0
+    dissonants = np.ones( (40,) )
+    dissonants[consonants40] = 0.0
 
     #store result
-    consonance_pre = np.zeros( song_length )
-    consonance_post = np.zeros( song_length )
-    consonance_context = np.zeros( song_length )
+    dissonance_pre = np.zeros( song_length )
+    dissonance_post = np.zeros( song_length )
+    dissonance_context = np.zeros( song_length )
 
     for ix, context in enumerate(wpc.pitchcontext): #go over the notes...
 
@@ -94,17 +94,17 @@ def computeConsonance(
         intervals_pre  = np.roll(context[:40], -pitch40)
         intervals_post = np.roll(context[40:], -pitch40)
 
-        consonance_pre[ix] = np.sum(np.multiply(intervals_pre, consonants))
-        consonance_post[ix] = np.sum(np.multiply(intervals_post, consonants))
+        dissonance_pre[ix] = np.sum(np.multiply(intervals_pre, dissonants))
+        dissonance_post[ix] = np.sum(np.multiply(intervals_post, dissonants))
 
     #normalize
-    #consonance_pre = consonance_pre / np.sum(consonance_pre)
-    #consonance_post = consonance_post / np.sum(consonance_post)
+    #dissonance_pre = dissonance_pre / np.sum(dissonance_pre)
+    #dissonance_post = dissonance_post / np.sum(dissonance_post)
 
     #combine pre and post context
-    consonance_context = combiner(consonance_pre, consonance_post)
+    dissonance_context = combiner(dissonance_pre, dissonance_post)
 
-    return consonance_pre, consonance_post, consonance_context
+    return dissonance_pre, dissonance_post, dissonance_context
 
 
 def computePrePostDistance(

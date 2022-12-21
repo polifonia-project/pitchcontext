@@ -40,10 +40,10 @@ def novelty2colordict(novelty, ixs, percentile, songlength, color='red', greynan
     )
 
 #color all notes with low consonance
-def consonance2colordict(consonance, ixs, percentile, songlength, color='red', greynan=True):
-    criterion = lambda x : x >= np.nanpercentile(consonance,percentile)
+def dissonance2colordict(dissonance, ixs, percentile, songlength, color='red', greynan=True):
+    criterion = lambda x : x >= np.nanpercentile(dissonance,percentile)
     return array2colordict(
-        consonance,
+        dissonance,
         ixs,
         criterion,
         songlength,
