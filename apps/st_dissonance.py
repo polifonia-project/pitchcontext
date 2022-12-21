@@ -2,7 +2,7 @@
 
 Run as:
 
-$ streamlit run st_dissonance.py -krnpath <path_to_kern_files> -jsonpath <path_to_json_files>
+$ streamlit run st_dissonance.py -- -krnpath <path_to_kern_files> -jsonpath <path_to_json_files>
 """
 
 import argparse
