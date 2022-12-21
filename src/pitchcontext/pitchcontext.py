@@ -109,7 +109,7 @@ class PitchContext:
         elif self.params.context_type == 'notes':
             return ComputePitchContextNotes(self)
         elif self.params.context_type == 'scoretime':
-            return ComputePitchContextSoretime(self)
+            return ComputePitchContextScoretime(self)
         else:
             print("Error: Unsupported context type: " + self.params.context_type)
 
