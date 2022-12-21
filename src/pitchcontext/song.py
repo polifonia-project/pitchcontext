@@ -334,8 +334,11 @@ class Song:
     #\override NoteHead.color -> \once\override NoteHead.color
 
     def repairLyline(self, line):
-        """Corrects possbile error in a line of the Ly export. Note coloring should be done once.
-
+        """Corrects possbile errors in a line of the Ly export:
+        - Note coloring should be done once.
+        - Melisma are somehow following beams (instead of slurs)
+        - Beaming is wrong. 16th and 32th etc notes get 1 beam.
+        
         Parameters
         ----------
         line : str
@@ -349,7 +352,11 @@ class Song:
         line = line.replace("\\override Stem.color","\\once\\override Stem.color")
         line = line.replace("\\override NoteHead.color","\\once\\override NoteHead.color")
         line = line.replace("\\include \"lilypond-book-preamble.ly\"","")
+
         line = line.replace("\\addlyrics { ", "\\addlyrics { \\set ignoreMelismata = ##t ")
+        
+        line = line.replace("\\set stemLeftBeamCount = #1", "")        
+        line = line.replace("\\set stemRightBeamCount = #1", "")        
         return line
     
     def formatAndRepairLy(self, filename):
