@@ -9,7 +9,7 @@ import numpy as np
 
 from .song import Song
 from .PCParameters import PCParameters
-from .ComputePitchContext import ComputePitchContextBeats, ComputePitchContextNotes, ComputePitchContextSoretime
+from .ComputePitchContext import ComputePitchContextBeats, ComputePitchContextNotes, ComputePitchContextScoretime
 from .base40 import base40
 
 #weighted pitch contect
