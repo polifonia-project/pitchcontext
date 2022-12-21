@@ -63,7 +63,7 @@ class ComputePitchContext(ABC):
     def computeContextLengthPost(self, context_ixs):
         pass
 
-class ComputePitchContextSoretime(ComputePitchContext):
+class ComputePitchContextScoretime(ComputePitchContext):
     pass
 
 class ComputePitchContextNotes(ComputePitchContext):
