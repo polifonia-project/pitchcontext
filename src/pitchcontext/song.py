@@ -349,6 +349,7 @@ class Song:
         line = line.replace("\\override Stem.color","\\once\\override Stem.color")
         line = line.replace("\\override NoteHead.color","\\once\\override NoteHead.color")
         line = line.replace("\\include \"lilypond-book-preamble.ly\"","")
+        line = line.replace("\\addlyrics { ", "\\addlyrics { \\set ignoreMelismata = ##t ")
         return line
     
     def formatAndRepairLy(self, filename):
