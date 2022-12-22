@@ -165,8 +165,18 @@ wpc = PitchContext(
     min_distance_weight_post=mindistw_post_slider,
 )
 
-dissonance_pre, dissonance_post, dissonance_context  = computeDissonance(song, wpc, combiner=lambda x, y: (x+y)*0.5, normalizecontexts=True)
-#dissonance_pre, dissonance_post, dissonance_context  = computeDissonance(song, wpc, combiner=np.minimum)
+dissonance_pre, dissonance_post, dissonance_context  = computeDissonance(
+    song,
+    wpc,
+    combiner=lambda x, y: (x+y)*0.5,
+    normalizecontexts=True
+)
+# dissonance_pre, dissonance_post, dissonance_context  = computeDissonance(
+#     song,
+#     wpc,
+#     combiner=lambda x, y: np.maximum(np.nan_to_num(x), np.nan_to_num(y)),
+#     normalizecontexts=True
+# )
 
 with col1:
     cons_threshold = np.nanpercentile(dissonance_context,percentile_slider)
