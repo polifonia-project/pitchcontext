@@ -118,10 +118,11 @@ class PitchContext:
 
         Returns
         -------
-        numpy array
-            Dimension is (length of ixs, 40). The first dimension corresponds to the note indices in
+        numpy array, numpy array
+            1. weightedpitch: Dimension is (length of ixs, 40). The first dimension corresponds to the note indices in
             `ixs`. The second dimension contains the metric weight of the corresponding note for the
             appropriate pitch in base 40 encoding.
+            2 ixs: indices of the notes in the original melody.
         """
         #put param values in local variables for readibility
         removeRepeats = self.params.remove_repeats
@@ -201,10 +202,12 @@ class PitchContext:
 
         Returns
         -------
-        numpy array
-            Dimension is (length of `ixs`, 80). The first dimension corresponds to the note indices in
+        numpy arrays, list, list
+            1. pichcontext: Dimension is (length of `ixs`, 80). The first dimension corresponds to the note indices in
             `ixs`. The second dimension correpsonds to 40 pitches in the preceding context [:40] and
             40 pitches in the following context [40:]. Pitches are in base40 encoding.
+            2. contexts_pre: for each note the list of indices (ixs) of the notes in the preceding context.
+            3. contexts_post: for each note the list of indices (ixs) of the notes in the following context.
         """
         #put param values in local variables for readibility
         use_metric_weights_pre = self.params.use_metric_weights_pre
@@ -219,7 +222,7 @@ class PitchContext:
         contexts_pre = []
         contexts_post = []
         
-        for ix, songix in enumerate(self.ixs):
+        for ix in range(len(enumerate(self.ixs))):
             #get context for the note (list of note indices)
             context_pre_ixs = self.cpc.computePreContext(ix)
             context_post_ixs = self.cpc.computePostContext(ix)
@@ -291,6 +294,11 @@ class PitchContext:
         **features  : keyword arguments
             any other feature to report. The keyword is the name of the feature, the value is a 1D array
             with the same lenght as `self.ixs`.
+
+        Returns
+        ----------
+        str
+            String containing the report.
         """
         output = []
         for ix in range(len(self.ixs)):
