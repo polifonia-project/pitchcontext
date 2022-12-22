@@ -222,7 +222,7 @@ class PitchContext:
         contexts_pre = []
         contexts_post = []
         
-        for ix in range(len(enumerate(self.ixs))):
+        for ix in range(len(self.ixs)):
             #get context for the note (list of note indices)
             context_pre_ixs = self.cpc.computePreContext(ix)
             context_post_ixs = self.cpc.computePostContext(ix)
