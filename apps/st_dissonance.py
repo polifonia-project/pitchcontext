@@ -11,6 +11,7 @@ from fractions import Fraction
 from PIL import Image
 import os
 from dataclasses import asdict
+import random
 
 import numpy as np
 import seaborn as sns
@@ -43,10 +44,14 @@ jsonpath = args.jsonpath
 st.set_page_config(layout="wide")
 col1, col2 = st.columns([2,1])
 
+#select a file from the krnpath
+initialid = random.choice(os.listdir(krnpath))
+initialid = initialid.rstrip(".krn")
+
 with st.sidebar:
     songid = st.text_input(
         label="Song ID",
-        value="NLB147059_01"
+        value=initialid
     )
 
     #we need to load the song here, because the song is needed to set pre_c_slider and post_c_slider max

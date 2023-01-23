@@ -11,6 +11,7 @@ from fractions import Fraction
 from PIL import Image
 import os
 from dataclasses import asdict
+import random
 
 import numpy as np
 import seaborn as sns
@@ -28,13 +29,13 @@ parser.add_argument(
     '-krnpath',
     dest='krnpath',
     help='Path to **kern files.',
-    default="/Users/krane108/data/MTC/MTC-FS-INST-2.0/krn",
+    default="/Users/krane108/data/MELFeatures/mtcfsinst2.0/krn",
 )
 parser.add_argument(
     '-jsonpath',
     dest='jsonpath',
     help='Path to json files (in MTCFeatures format).',
-    default="/Users/krane108/data/MTCFeatures/MTC-FS-inst-2.0/json",
+    default="/Users/krane108/data/MELFeatures/mtcfsinst2.0/mtcjson",
 )
 args = parser.parse_args()
 krnpath = args.krnpath
@@ -43,10 +44,14 @@ jsonpath = args.jsonpath
 st.set_page_config(layout="wide")
 col1, col2 = st.columns([2,1])
 
+#select a file from the krnpath
+initialid = random.choice(os.listdir(krnpath))
+initialid = initialid.rstrip(".krn")
+
 with st.sidebar:
     songid = st.text_input(
         label="Song ID",
-        value="NLB147059_01"
+        value=initialid
     )
 
     #Load song here. The song is needed to compute the song length.
