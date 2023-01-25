@@ -59,8 +59,8 @@ class PCParameters():
             self.len_context_post = None
        
         if self.use_metric_weights != None:
-            self.use_metric_weights_pre = self.use_distance_weights
-            self.use_metric_weights_post = self.use_distance_weights
+            self.use_metric_weights_pre = self.use_metric_weights
+            self.use_metric_weights_post = self.use_metric_weights
             self.use_metric_weights = None
        
         if self.use_distance_weights != None:
