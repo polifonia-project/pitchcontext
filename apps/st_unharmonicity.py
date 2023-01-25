@@ -96,6 +96,11 @@ with st.sidebar:
         index=1,
         format_func=context_border_format_func
     )
+    context_rel_focus = st.checkbox(
+        "Never extend focus beyond note with higher weight than focus note",
+        value=True,
+    )
+    normalize_context_for_dissonance = context_rel_focus
     accweight_check = st.checkbox(
         "Accumulate Weight.",
         value=True
@@ -122,8 +127,8 @@ wpc = PitchContext(
     context_type='beats',
     len_context_pre='auto',
     len_context_post='auto',
-    len_context_params={'threshold':context_border},
-    use_metric_weights_pre=False,
+    len_context_params={'threshold':context_border, 'not_heigher_than_focus':context_rel_focus},
+    use_metric_weights_pre=pre_usemw_check,
     use_metric_weights_post=post_usemw_check,
     include_focus_pre=False,
     include_focus_post=False,
@@ -137,18 +142,18 @@ dissonance_pre, dissonance_post, dissonance_context  = computeDissonance(
     song,
     wpc,
     combiner=lambda x, y: (x+y)*0.5,
-    normalizecontexts=True
+    normalizecontexts=normalize_context_for_dissonance
 )
 # dissonance_pre, dissonance_post, dissonance_context  = computeDissonance(
 #     song,
 #     wpc,
 #     combiner=lambda x, y: np.minimum(np.nan_to_num(x), np.nan_to_num(y)),
-#     normalizecontexts=True
+#     normalizecontexts=normalize_context_for_dissonance
 # )
 unharmonicity = computeUnharmonicity(
     song,
     wpc,
-    dissonance_context,
+    dissonance_pre,
     beatstrength_threshold
 )
 
