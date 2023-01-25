@@ -162,3 +162,32 @@ def computeNovelty(
         perc  = new / total
         novelty[ix] = np.average(perc[perc>0])
     return novelty
+
+def computeUnharmonicity(
+    song: Song,
+    wpc : PitchContext,
+    dissonance: np.array,
+    beatstrength_treshold: float,
+    epsilon: float = 10e-4
+):
+    """Computes for each note the degree to which it is 'unharmonic'.
+    Each note with beatstrength lower than 0.5, and dissonant in its context is considered 'unharmonic'.
+
+    Parameters
+    ----------
+    song : Song
+        Ojbect with song data.
+    wpc : PitchContext
+        Object with pitch context data
+
+    Returns
+    -------
+    numpy array
+        1D numpy array with a unharmonicity value for each note.
+    """
+    beatstrength = song.mtcsong['features']['beatstrength']
+    unharmonicity = np.zeros( len(wpc.pitchcontext) )
+    for ix in range(len(wpc.pitchcontext)):
+        if beatstrength[wpc.ixs[ix]] < beatstrength_treshold - epsilon:
+            unharmonicity[ix] = dissonance[ix]
+    return unharmonicity

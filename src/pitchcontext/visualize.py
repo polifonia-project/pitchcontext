@@ -51,6 +51,19 @@ def dissonance2colordict(dissonance, ixs, percentile, songlength, color='red', g
         greynan
     )
 
+#color all unharmonic notes
+def unharmonicity2colordict(unharmonicity, ixs, threshold, songlength, color='red', greynan=True):
+    criterion = lambda x : x >= threshold
+    return array2colordict(
+        unharmonicity,
+        ixs,
+        criterion,
+        songlength,
+        color,
+        greynan
+    )
+
+
 def plotArray(array, ixs, xlabel : str, ylabel : str, figsize=(10,3)):
     fig, ax = plt.subplots(figsize=figsize)
     plt.ylim(-0.05,np.max(np.nan_to_num(array)) * 1.05)
