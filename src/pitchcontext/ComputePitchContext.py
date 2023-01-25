@@ -19,32 +19,32 @@ class ComputePitchContext(ABC):
         self.song = wpc.song
         self.params = wpc.params        
 
-    def computePreContext(self, focus_ix):
+    def computePreContext(self, focus_ix, **context_params_pre):
         if self.params.len_context_pre_auto:
-            return self.computePreContextAuto(focus_ix)
+            return self.computePreContextAuto(focus_ix, **context_params_pre)
         else:
-            return self.computePreContextFixed(focus_ix)
+            return self.computePreContextFixed(focus_ix, **context_params_pre)
 
-    def computePostContext(self, focus_ix):
+    def computePostContext(self, focus_ix, **context_params_post):
         if self.params.len_context_post_auto:
-            return self.computePostContextAuto(focus_ix)
+            return self.computePostContextAuto(focus_ix, **context_params_post)
         else:
-            return self.computePostContextFixed(focus_ix)
+            return self.computePostContextFixed(focus_ix, **context_params_post)
 
     @abstractmethod
-    def computePreContextFixed(self, focus_ix):
+    def computePreContextFixed(self, focus_ix, **context_params_pre):
         pass
 
     @abstractmethod
-    def computePostContextFixed(self, focus_ix):
+    def computePostContextFixed(self, focus_ix, **context_params_post):
         pass
 
     @abstractmethod
-    def computePreContextAuto(self, focus_ix):
+    def computePreContextAuto(self, focus_ix, **context_params_pre):
         pass
 
     @abstractmethod
-    def computePostContextAuto(self, focus_ix):
+    def computePostContextAuto(self, focus_ix, **context_params_post):
         pass
     
     @abstractmethod
@@ -77,7 +77,7 @@ class ComputePitchContextBeats(ComputePitchContext):
         self.beatinsong = np.array([self.song.mtcsong['features']['beatinsong_float'][ix] for ix in wpc.ixs])
         self.beatinsong_next = np.append(self.beatinsong[1:],self.songlength_beat+self.beatinsong[0]) #first beatinsong might be negative (upbeat)
 
-    def computePreContextFixed(self, focus_ix):
+    def computePreContextFixed(self, focus_ix, **context_params_pre):
         beatoffset = self.beatinsong - self.beatinsong[focus_ix]
         len_context_pre = self.params.len_context_pre
         epsilon = self.params.epsilon
@@ -101,7 +101,7 @@ class ComputePitchContextBeats(ComputePitchContext):
         
         return context_pre_ixs
 
-    def computePostContextFixed(self, focus_ix):
+    def computePostContextFixed(self, focus_ix, **context_params_post):
         beatoffset = self.beatinsong - self.beatinsong[focus_ix]
         slicelength = self.beatinsong_next[focus_ix] - self.beatinsong[focus_ix]
         beatoffset_next = beatoffset - slicelength #set onset of next note to 0.0
@@ -116,7 +116,7 @@ class ComputePitchContextBeats(ComputePitchContext):
             context_post_ixs = np.where(np.logical_and(beatoffset_next>=0, beatoffset_next<(len_context_post - epsilon)))[0]
         return context_post_ixs
 
-    def computePreContextAuto(self, focus_ix):
+    def computePreContextAuto(self, focus_ix, **context_params_pre):
         context_pre_ixs = []
         if self.params.include_focus_pre:
             context_pre_ixs.append(focus_ix)
@@ -125,14 +125,14 @@ class ComputePitchContextBeats(ComputePitchContext):
             if ixadd < 0:
                 break
             context_pre_ixs.append(ixadd)
-            if np.sum(self.wpc.weightedpitch[ixadd]) >= 1.0-self.params.epsilon or np.sum(self.wpc.weightedpitch[ixadd]) > np.sum(self.wpc.weightedpitch[focus_ix]):
+            if np.sum(self.wpc.weightedpitch[ixadd]) >= context_params_pre['threshold']-self.params.epsilon or np.sum(self.wpc.weightedpitch[ixadd]) > np.sum(self.wpc.weightedpitch[focus_ix]):
                 break
             ixadd = ixadd - 1
         context_pre_ixs.reverse()
         context_pre_ixs = np.array(context_pre_ixs, dtype=int)
         return context_pre_ixs
 
-    def computePostContextAuto(self, focus_ix):
+    def computePostContextAuto(self, focus_ix, **context_params_post):
         context_post_ixs = []
         if self.params.include_focus_post:
             context_post_ixs.append(focus_ix)
@@ -141,7 +141,7 @@ class ComputePitchContextBeats(ComputePitchContext):
             if ixadd >= len(self.wpc.ixs):
                 break
             context_post_ixs.append(ixadd)
-            if np.sum(self.wpc.weightedpitch[ixadd]) >= 1.0-self.params.epsilon or np.sum(self.wpc.weightedpitch[ixadd]) > np.sum(self.wpc.weightedpitch[focus_ix]):
+            if np.sum(self.wpc.weightedpitch[ixadd]) >= context_params_post['threshold']-self.params.epsilon or np.sum(self.wpc.weightedpitch[ixadd]) > np.sum(self.wpc.weightedpitch[focus_ix]):
                 break
             ixadd = ixadd + 1
         context_post_ixs = np.array(context_post_ixs, dtype=int)

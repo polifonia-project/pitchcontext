@@ -1,6 +1,6 @@
 """Class to manage parameter configuration."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import typing
 
 @dataclass()
@@ -19,6 +19,10 @@ class PCParameters():
     len_context_pre_auto: bool = True
     len_context_post: 'typing.Any' = 'auto'
     len_context_post_auto: bool = True
+
+    len_context_params: 'typing.Any' = None
+    len_context_params_pre: dict = field(default_factory=lambda : {})
+    len_context_params_post: dict = field(default_factory=lambda : {})
 
     use_metric_weights: bool = None
     use_metric_weights_pre: bool = True
@@ -57,7 +61,12 @@ class PCParameters():
         if self.len_context_post == 'auto':
             self.len_context_post_auto = True
             self.len_context_post = None
-       
+
+        if self.len_context_params != None:
+            self.len_context_params_pre = self.len_context_params
+            self.len_context_params_post = self.len_context_params
+            self.len_context_params = None
+
         if self.use_metric_weights != None:
             self.use_metric_weights_pre = self.use_metric_weights
             self.use_metric_weights_post = self.use_metric_weights

@@ -43,6 +43,8 @@ class PitchContext:
         If a tuple is given, first in the tuple refers to preceding context and
         second in the tuple to the following context.
         'auto': the length of the context is determined automatically.
+    len_context_params: dict, or (dict, dict) default = {}
+        Named parameters for determination of context length. Depends on algorithm.
     use_metric_weights : boolean or (boolean, boolean), default=True
         Whether to weight the pitches in the conext by their metric weight.
         If a tuple is given, first in the tuple refers to preceding context and
@@ -224,8 +226,8 @@ class PitchContext:
         
         for ix in range(len(self.ixs)):
             #get context for the note (list of note indices)
-            context_pre_ixs = self.cpc.computePreContext(ix)
-            context_post_ixs = self.cpc.computePostContext(ix)
+            context_pre_ixs = self.cpc.computePreContext(ix, **self.params.len_context_params_pre)
+            context_post_ixs = self.cpc.computePostContext(ix, **self.params.len_context_params_post)
 
             # print('context_pre', context_pre_ixs)
             # print('context_post', context_post_ixs)
@@ -293,7 +295,7 @@ class PitchContext:
             Only print the values the note at index `note_ix` in the original melody (not in `self.ixs`).
         **features  : keyword arguments
             any other feature to report. The keyword is the name of the feature, the value is a 1D array
-            with the same lenght as `self.ixs`.
+            with the same length as `self.ixs`.
 
         Returns
         ----------
