@@ -21,7 +21,7 @@ import streamlit.components.v1 as components
 
 from pitchcontext import Song, PitchContext
 from pitchcontext.visualize import unharmonicity2colordict, plotArray
-from pitchcontext.models import computeDissonance, computeUnharmonicity
+from pitchcontext.models import computeDissonance, computeUnharmonicity, computeConsonance
 from pitchcontext.base40 import base40naturalslist
 
 parser = argparse.ArgumentParser(description='Visualize the dissonance of the focus note within its context.')
@@ -72,9 +72,9 @@ with st.sidebar:
     threshold_slider = st.slider(
         'Threshold for unharmonicity.',
         min_value=0.,
-        max_value=1.,
+        max_value=2.,
         step=0.01,
-        value=0.25
+        value=0.1
     )
     def beatstrength_threshold_format_func(x):
         if x == 1.0:
@@ -100,7 +100,8 @@ with st.sidebar:
         "Never extend focus beyond note with higher weight than focus note",
         value=True,
     )
-    normalize_context_for_dissonance = context_rel_focus
+    #normalize_context_for_dissonance = context_rel_focus
+    normalize_context_for_dissonance = False
     accweight_check = st.checkbox(
         "Accumulate Weight.",
         value=True
@@ -138,10 +139,27 @@ wpc = PitchContext(
     min_distance_weight_post=0.0,
 )
 
+def combiner(x, y):
+    res = np.zeros(len(x))
+    for ix in range(len(x)):
+        if np.isnan(y[ix]):
+            res[ix] = x[ix]
+        elif np.isnan(x[ix]):
+            res[ix] = y[ix]
+        else:
+            res[ix] = (x[ix]+y[ix]) * 0.5
+    return res
+
 dissonance_pre, dissonance_post, dissonance_context  = computeDissonance(
     song,
     wpc,
-    combiner=lambda x, y: (x+y)*0.5,
+    combiner=combiner,
+    normalizecontexts=normalize_context_for_dissonance
+)
+consonance_pre, consonance_post, consonance_context  = computeConsonance(
+    song,
+    wpc,
+    combiner=combiner,
     normalizecontexts=normalize_context_for_dissonance
 )
 # dissonance_pre, dissonance_post, dissonance_context  = computeDissonance(
@@ -154,6 +172,7 @@ unharmonicity = computeUnharmonicity(
     song,
     wpc,
     dissonance_pre,
+    consonance_pre,
     beatstrength_threshold
 )
 
@@ -169,7 +188,10 @@ with col1:
 
     cdict = unharmonicity2colordict(unharmonicity, wpc.ixs, threshold_slider, song.getSongLength())
     pngfn = song.createColoredPNG(cdict, '/tmp', showfilename=False)
-    image = Image.open(pngfn)
+    try:
+        image = Image.open(pngfn)
+    except FileNotFoundError as e: #maybe multiple pages. Try page 1
+        image = Image.open(pngfn.replace('.png','-0.png'))
     st.image(image, output_format='PNG', use_column_width=True)
 
     fig_pre, ax_pre = plt.subplots(figsize=(10,2))
@@ -198,6 +220,9 @@ with col2:
         dissonance_context=dissonance_context,
         dissonance_pre=dissonance_pre,
         dissonance_post=dissonance_post,
+        consonance_context=consonance_context,
+        consonance_pre=consonance_pre,
+        consonance_post=consonance_post,
         unharmonicity=unharmonicity,
         maxbeatstrength=[song.mtcsong['features']['maxbeatstrength'][ix] for ix in wpc.ixs]
     )

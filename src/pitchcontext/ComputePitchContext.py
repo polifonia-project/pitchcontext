@@ -117,6 +117,16 @@ class ComputePitchContextBeats(ComputePitchContext):
         return context_post_ixs
 
     def computePreContextAuto(self, focus_ix, **context_params_pre):
+        #handle params
+        if 'threshold' in context_params_pre:
+            threshold = context_params_pre['threshold']
+        else:
+            threshold = 1.0 #default
+        if 'not_heigher_than_focus' in context_params_pre:
+            not_heigher_than_focus = context_params_pre['not_heigher_than_focus']
+        else:
+            not_heigher_than_focus = True #default
+
         context_pre_ixs = []
         if self.params.include_focus_pre:
             context_pre_ixs.append(focus_ix)
@@ -125,7 +135,12 @@ class ComputePitchContextBeats(ComputePitchContext):
             if ixadd < 0:
                 break
             context_pre_ixs.append(ixadd)
-            if np.sum(self.wpc.weightedpitch[ixadd]) >= context_params_pre['threshold']-self.params.epsilon or np.sum(self.wpc.weightedpitch[ixadd]) > np.sum(self.wpc.weightedpitch[focus_ix]):
+            threshold_condition = np.sum(self.wpc.weightedpitch[ixadd]) >= threshold-self.params.epsilon
+            if not_heigher_than_focus:
+                rel_condition = np.sum(self.wpc.weightedpitch[ixadd]) >= np.sum(self.wpc.weightedpitch[focus_ix])
+            else:
+                rel_condition = False
+            if threshold_condition or rel_condition:
                 break
             ixadd = ixadd - 1
         context_pre_ixs.reverse()
@@ -133,6 +148,16 @@ class ComputePitchContextBeats(ComputePitchContext):
         return context_pre_ixs
 
     def computePostContextAuto(self, focus_ix, **context_params_post):
+        #handle params
+        if 'threshold' in context_params_post:
+            threshold = context_params_post['threshold']
+        else:
+            threshold = 1.0 #default
+        if 'not_heigher_than_focus' in context_params_post:
+            not_heigher_than_focus = context_params_post['not_heigher_than_focus']
+        else:
+            not_heigher_than_focus = True #default
+        
         context_post_ixs = []
         if self.params.include_focus_post:
             context_post_ixs.append(focus_ix)
@@ -141,7 +166,16 @@ class ComputePitchContextBeats(ComputePitchContext):
             if ixadd >= len(self.wpc.ixs):
                 break
             context_post_ixs.append(ixadd)
-            if np.sum(self.wpc.weightedpitch[ixadd]) >= context_params_post['threshold']-self.params.epsilon or np.sum(self.wpc.weightedpitch[ixadd]) > np.sum(self.wpc.weightedpitch[focus_ix]):
+            threshold_condition = np.sum(self.wpc.weightedpitch[ixadd]) >= threshold-self.params.epsilon
+            if not_heigher_than_focus:
+                rel_condition = np.sum(self.wpc.weightedpitch[ixadd]) >= np.sum(self.wpc.weightedpitch[focus_ix])
+            else:
+                rel_condition = False
+            if threshold_condition or rel_condition: # stop criterion
+                #if threshold, remove last note
+                if threshold_condition:
+                    context_post_ixs.pop()
+                #stop
                 break
             ixadd = ixadd + 1
         context_post_ixs = np.array(context_post_ixs, dtype=int)

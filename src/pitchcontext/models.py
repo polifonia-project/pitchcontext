@@ -86,10 +86,13 @@ def computeDissonance(
         #make copy of context
         context = np.copy(context)
 
-        #normalize contexts: sum of context is 1.0
+        #normalize contexts: sum of context is 1.0 (zero stays zero)
         if normalizecontexts:
-            context[:40] = context[:40] / np.sum(context[:40])
-            context[40:] = context[40:] / np.sum(context[40:])
+            if np.sum(context[:40]) > 0.0:
+                context[:40] = context[:40] / np.sum(context[:40])
+            if np.sum(context[40:]) > 0.0:
+                context[40:] = context[40:] / np.sum(context[40:])
+
 
         intervals_pre  = np.roll(context[:40], -pitch40)
         intervals_post = np.roll(context[40:], -pitch40)
@@ -97,9 +100,11 @@ def computeDissonance(
         dissonance_pre[ix] = np.sum(np.multiply(intervals_pre, dissonants))
         dissonance_post[ix] = np.sum(np.multiply(intervals_post, dissonants))
 
-    #normalize
-    #dissonance_pre = dissonance_pre / np.sum(dissonance_pre)
-    #dissonance_post = dissonance_post / np.sum(dissonance_post)
+        #if context is empty: value should be np.nan
+        if len(wpc.contexts_pre[ix]) == 0:
+            dissonance_pre[ix] = np.nan
+        if len(wpc.contexts_post[ix]) == 0:
+            dissonance_post[ix] = np.nan
 
     #combine pre and post context
     dissonance_context = combiner(dissonance_pre, dissonance_post)
@@ -154,16 +159,24 @@ def computeConsonance(
         #make copy of context
         context = np.copy(context)
 
-        #normalize contexts: sum of context is 1.0
+        #normalize contexts: sum of context is 1.0 (zero stays zero)
         if normalizecontexts:
-            context[:40] = context[:40] / np.sum(context[:40])
-            context[40:] = context[40:] / np.sum(context[40:])
+            if np.sum(context[:40]) > 0.0:
+                context[:40] = context[:40] / np.sum(context[:40])
+            if np.sum(context[40:]) > 0.0:
+                context[40:] = context[40:] / np.sum(context[40:])
 
         intervals_pre  = np.roll(context[:40], -pitch40)
         intervals_post = np.roll(context[40:], -pitch40)
 
         consonance_pre[ix] = np.sum(np.multiply(intervals_pre, consonants))
         consonance_post[ix] = np.sum(np.multiply(intervals_post, consonants))
+
+        #if context is empty: value should be np.nan
+        if len(wpc.contexts_pre[ix]) == 0:
+            consonance_pre[ix] = np.nan
+        if len(wpc.contexts_post[ix]) == 0:
+            consonance_post[ix] = np.nan
 
     #combine pre and post context
     consonance_context = combiner(consonance_pre, consonance_post)
@@ -231,6 +244,7 @@ def computeUnharmonicity(
     song: Song,
     wpc : PitchContext,
     dissonance: np.array,
+    consonance: np.array,
     beatstrength_treshold: float,
     epsilon: float = 10e-4
 ):
@@ -253,5 +267,10 @@ def computeUnharmonicity(
     unharmonicity = np.zeros( len(wpc.pitchcontext) )
     for ix in range(len(wpc.pitchcontext)):
         if beatstrength[wpc.ixs[ix]] < beatstrength_treshold - epsilon:
-            unharmonicity[ix] = dissonance[ix]
+            #unharmonicity[ix] = max ( dissonance[ix] - consonance[ix], 0.0 )
+            if consonance[ix] == 0.0:
+                unharmonicity[ix] = 10.0
+            else:
+                unharmonicity[ix] = max ( dissonance[ix] - consonance[ix], 0.0)
+                #unharmonicity[ix] = dissonance[ix] / consonance[ix]
     return unharmonicity
