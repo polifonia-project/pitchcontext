@@ -353,8 +353,6 @@ class Song:
         line = line.replace("\\override NoteHead.color","\\once\\override NoteHead.color")
         line = line.replace("\\include \"lilypond-book-preamble.ly\"","")
 
-        line = line.replace("\\addlyrics { ", "\\addlyrics { \\set ignoreMelismata = ##t ")
-        
         line = line.replace("\\set stemLeftBeamCount = #1", "")        
         line = line.replace("\\set stemRightBeamCount = #1", "")        
         return line
