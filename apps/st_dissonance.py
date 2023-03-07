@@ -29,13 +29,13 @@ parser.add_argument(
     '-krnpath',
     dest='krnpath',
     help='Path to **kern files.',
-    default="/Users/krane108/data/MELFeatures/mtcfsinst/krn",
+    default="/Users/krane108/data/MELFeatures/mtcfsinst2.0/krn",
 )
 parser.add_argument(
     '-jsonpath',
     dest='jsonpath',
     help='Path to json files (in MTCFeatures format).',
-    default="/Users/krane108/data/MELFeatures/mtcfsinst/mtcjson",
+    default="/Users/krane108/data/MELFeatures/mtcfsinst2.0/mtcjson",
 )
 args = parser.parse_args()
 krnpath = args.krnpath
@@ -82,14 +82,14 @@ with st.sidebar:
         min_value=0.0,
         max_value=songlength_beat,
         step=0.5,
-        value=0.0
+        value=1.0
     )
     post_c_slider = st.slider(
         'Length of following context (beats)',
         min_value=0.0,
         max_value=songlength_beat,
         step=0.5,
-        value=0.0
+        value=1.0
     )
     partialnotes_check = st.checkbox(
         "Include partial notes in preceding context.",
