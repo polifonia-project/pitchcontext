@@ -29,13 +29,13 @@ parser.add_argument(
     '-krnpath',
     dest='krnpath',
     help='Path to **kern files.',
-    default="/Users/krane108/data/MELFeatures/mtcfsinst/krn",
+    default="/Users/krane108/data/MELFeatures/eyck/krn",
 )
 parser.add_argument(
     '-jsonpath',
     dest='jsonpath',
     help='Path to json files (in MTCFeatures format).',
-    default="/Users/krane108/data/MELFeatures/mtcfsinst/mtcjson",
+    default="/Users/krane108/data/MELFeatures/eyck/mtcjson",
 )
 args = parser.parse_args()
 krnpath = args.krnpath
@@ -91,7 +91,7 @@ with st.sidebar:
     def context_border_format_func(x):
         return str(x)
     context_border = st.radio(
-        "Extend context till (and including) note with beatstr:",
+        "Extend context till (including) note with beatstr >=",
         (1.0, 0.5),
         index=1,
         format_func=context_border_format_func
