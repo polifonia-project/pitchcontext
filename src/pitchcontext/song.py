@@ -6,6 +6,7 @@ from math import gcd
 import subprocess
 import tempfile
 import os
+import json
 
 import numpy as np
 import music21 as m21
@@ -551,3 +552,34 @@ class Song:
         return self.createColoredPNG({}, outputpath, filebasename=filebasename, showfilename=showfilename)
 
 
+    def writeMTCJSON(self, outputpath, filebasename=None):
+        if filebasename == None:
+            filebasename = self.mtcsong['id']        
+        with open(os.path.join(outputpath,filebasename+'.json'), 'w') as f:
+            json.dump(self.mtcsong, f)
+    
+    def writePerSymbolJSON(self, outputpath, filebasename=None):
+        if filebasename == None:
+            filebasename = self.mtcsong['id']
+        #build per symbol representation
+        symbols = []
+        for ix in range(self.getSongLength()):
+            symbol = {}
+            #due to a bug in MTCFeatures, there is no octave information in the pitch40 feature
+            #figure out the octave from the midi pitch, and correct the pitch40 value
+            #take 1-based pitch40. I.e., the first octave is [1,40] (rather than [0,39])
+            #midi middle C octave = 5 (sixth octave) = base40 octave 4 (fourth octave)
+            octave = self.mtcsong['features']['midipitch'][ix] // 12
+            pitch40 = 40 * (octave-2) + ((self.mtcsong['features']['pitch40'][ix] + 1) % 40) - 1  #still do mapping to base octave for pitch40 first, to make this future-proof.
+            symbol["pitch40"] = pitch40
+            symbol["onset"] = self.mtcsong['features']['onsettick'][ix]
+            symbol["phrase"] = self.mtcsong['features']['phrase_ix'][ix]
+            symbol["ima"] = self.mtcsong['features']['imaweight'][ix]
+            symbol["phrasepos"] = self.mtcsong['features']['phrasepos'][ix]
+            symbols.append(symbol)
+        songdictINNER = {}
+        songdictINNER['symbols'] = symbols
+        songdict = {}
+        songdict[filebasename] = songdictINNER
+        with open(os.path.join(outputpath,filebasename+'.json'), 'w') as f:
+            json.dump(songdict, f)
