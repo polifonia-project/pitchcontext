@@ -372,6 +372,11 @@ class Song:
             for ix in reversed(ixs_remove):
                 if ix != 0: #TODO See above
                     mtcsong_new['features'][feat].pop(ix)
+        #list of onsets might need to be divided by the gcd
+        onsetgcd = np.gcd.reduce(mtcsong_new['features']['onsettick'])
+        if onsetgcd > 1:
+            for ix in range(len(mtcsong_new['features']['onsettick'])):
+                mtcsong_new['features']['onsettick'][ix] = int( mtcsong_new['features']['onsettick'][ix] / onsetgcd )
 
         song_new = Song(mtcsong_new, None, s_in=s_new, beatstrength_grid_in=beatstrength_grid_new)
         return song_new
