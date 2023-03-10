@@ -79,6 +79,8 @@ class Song:
 
     Attributes
     ----------
+    reduced : bool
+        True if this song object is derived from another song object by removing notes.
     mtcsong : dict
         Dictionary with feature values of all notes of the song, as provided by
         MTCFeatures
@@ -99,9 +101,8 @@ class Song:
         Onsets are indices in the list. beatstrength_grid[n] is the beatstrength for a note
         starting at n.
     """
-    #mtcson : dict from MTCFeatures
-    #krnfilename : filename of the corresponding **kern file
-    def __init__(self, mtcsong, krnfilename):
+
+    def __init__(self, mtcsong, krnfilename, s_in=None, beatstrength_grid_in=None):
         """Instantiate an object of class Song.
 
         Parameters
@@ -110,12 +111,26 @@ class Song:
             Dictionary of feature values and metadata of a song as provided by MTCFeatures
         krnfilename : str
             Full file name of a corresponding **kern file.
+            If krnfilename==None: derive from existing Song object (s_in and beatstrength_grid_in need to be provided.)
+        s_in : m21.Stream
+            If provided, do not parse from .krn file, but use the provided stream instead.
+        beatstrength_grid_in : list (float)
+            If provided, do not compute from .krn file, but use provided grid instead.
         """
         self.mtcsong = copy.deepcopy(mtcsong)
-        self.krnfilename = krnfilename
-        self.s = self.parseMelody()
-        self.onsets = self.getOnsets()
-        self.beatstrength_grid = self.create_beatstrength_grid()
+        if krnfilename != None:
+            self.reduced = False
+            self.krnfilename = krnfilename
+            self.s = self.parseMelody()
+            self.onsets = self.getOnsets()
+            self.beatstrength_grid = self.create_beatstrength_grid()
+        else:
+            self.reduced = True
+            self.krnfilename = None
+            self.s = copy.deepcopy(s_in)
+            self.onsets = self.getOnsets()
+            self.beatstrength_grid = copy.deepcopy(beatstrength_grid_in)
+        #always do this: recomputes features for reduced Song objects
         self.add_features()
 
     def getSongLength(self):
@@ -303,6 +318,64 @@ class Song:
         self.mtcsong['features']['maxbeatstrength'][-1] = self.mtcsong['features']['beatstrength'][-1]
         self.mtcsong['features']['beatinsong_float'] = [float(Fraction(b)) for b in self.mtcsong['features']['beatinsong']]
 
+    def getReducedSong(self, ixs_remove):
+        """Create a new Song object without the notes in ixs_removed.
+
+        Parameters
+        ----------
+        ixs_remove : list (int)
+            Contains the indices of the notes that need to be removed.
+        
+        Returns
+        -------
+        Song object
+            Song object
+        """
+        #create deep copy of m21 stream and beatstrength_grid
+        s_new = copy.deepcopy(self.s)
+        mtcsong_new = copy.deepcopy(self.mtcsong)
+        beatstrength_grid_new = copy.deepcopy(self.beatstrength_grid)
+
+        ixs_remove = sorted(ixs_remove)
+
+        #Replace notes with prolongation of previous note (with ties, and then stripTies())
+        s_new_list = list(s_new.flat.notes)
+        for ix in ixs_remove:
+
+            #for now, leave 0 in. Subsequent notes might have to be removed as well
+            if ix == 0:
+                continue
+
+            n = s_new_list[ix]
+            n_prev = s_new_list[ix-1] #exists
+            p_new = copy.deepcopy(s_new_list[ix-1].pitch) #take the pitch object of previous note
+            s_new_list[ix].pitch = p_new
+            #add ties
+            if n_prev.tie == None:
+                n_prev.tie = m21.tie.Tie('start')
+                n.tie = m21.tie.Tie('stop')
+            else: #previous has tie (must be 'stop')
+                if n_prev.tie.type == 'stop':
+                    n_prev.tie = m21.tie.Tie('continue')
+                else:
+                    n_prev.tie = m21.tie.Tie('start')
+                n.tie = m21.tie.Tie('stop')
+        s_new = s_new.stripTies()
+
+        #now remove first note (if 0 in ixs_remove)
+        #also fix in mtcsong_new (below)
+        #TODO
+
+        #go over all features in mtcsong_new and remove... this will make a mess
+        for feat in mtcsong_new['features'].keys():
+            for ix in reversed(ixs_remove):
+                if ix != 0: #TODO See above
+                    mtcsong_new['features'][feat].pop(ix)
+
+        song_new = Song(mtcsong_new, None, s_in=s_new, beatstrength_grid_in=beatstrength_grid_new)
+        return song_new
+
+
     def getColoredSong(self, colordict):
         """Create a new music21 stream with notes colored according to `colordict`.
 
@@ -317,7 +390,10 @@ class Song:
         music21 Stream
             music21 Stream.
         """
-        s = self.parseMelody()
+        if self.reduced:
+            s = copy.deepcopy(self.s)
+        else:
+            s = self.parseMelody()
         #check for right length #if so, assume notes correspond with features
         assert self.getSongLength() == len(s.flat.notes)
         for color, ixs in colordict.items():
@@ -410,7 +486,7 @@ class Song:
         path-like object
             Full path of the generated pdf.
         """
-        if filebasename is None:
+        if filebasename == None:
             filebasename = self.mtcsong['id']
         s = self.getColoredSong(colordict)
         s.write('lily', os.path.join(outputpath, filebasename+'.ly'))
@@ -473,3 +549,5 @@ class Song:
     
     def createPNG(self, outputpath, filebasename=None, showfilename=False):
         return self.createColoredPNG({}, outputpath, filebasename=filebasename, showfilename=showfilename)
+
+
