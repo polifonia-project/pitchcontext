@@ -340,6 +340,7 @@ class Song:
         ixs_remove = sorted(ixs_remove)
 
         #Replace notes with prolongation of previous note (with ties, and then stripTies())
+        #BUT not when the previous symbol is a rest!
         s_new_list = list(s_new.flat.notes)
         for ix in ixs_remove:
 
@@ -347,7 +348,19 @@ class Song:
             if ix == 0:
                 continue
 
+            #get note
             n = s_new_list[ix]
+
+            #check whether previous symbol is a rest
+            prev_symbol = n.previous() #seems to work. It takes the right stream.
+            if prev_symbol.isRest:
+                print(ix, ' preceeded by rest')
+                print(n.sites.getSiteIds())
+                site = n.sites.getSitesByClass('Measure')[0] #assume it is the first (and only)
+                print("removing from: ", site)
+                site.remove(n)
+                continue
+
             n_prev = s_new_list[ix-1] #exists
             p_new = copy.deepcopy(s_new_list[ix-1].pitch) #take the pitch object of previous note
             s_new_list[ix].pitch = p_new
@@ -361,6 +374,9 @@ class Song:
                 else:
                     n_prev.tie = m21.tie.Tie('start')
                 n.tie = m21.tie.Tie('stop')
+        #replace removed notes with rests
+        for m in s_new.recurse(classFilter=('Measure')):
+            m.makeRests(inPlace=True, fillGaps=True)
         s_new = s_new.stripTies()
 
         #now remove first note (if 0 in ixs_remove)
