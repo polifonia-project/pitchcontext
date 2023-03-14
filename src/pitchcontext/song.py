@@ -310,7 +310,6 @@ class Song:
             self.mtcsong['features']['offsettick'][ix] = self.mtcsong['features']['onsettick'][ix] + duration
         #maxbeatstrength
         for ix, span in enumerate(zip(self.onsets,self.mtcsong['features']['offsettick'])): # (onset, offset)
-            print(ix, span)
             self.mtcsong['features']['maxbeatstrength'][ix] = self.mtcsong['features']['beatstrength'][ix]
             if np.max(beatstrength_grid_np[span[0]:span[1]]) > self.mtcsong['features']['beatstrength'][ix]:
                 self.mtcsong['features']['syncope'][ix] = True

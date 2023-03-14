@@ -132,18 +132,20 @@ class PitchContext:
         metric_weights = self.params.metric_weights
         accumulateWeight = self.params.accumulate_weight
 
+        if metric_weights in ['ima', 'imaspect']:
+            raise Exception(f'{metric_weights} not yet implemented.')
+
+        #local variables as proxy
         songinstance = self.song
         song = self.song.mtcsong
 
-        if metric_weights in ['ima', 'imaspect']:
-            raise Exception(f'{metric_weights} not yet implemented.')
-        
         onsettick = song['features']['onsettick']
         pitch40 = song['features']['pitch40']
         beatstrengthgrid = np.array(song['features']['beatstrengthgrid'])
         beatstrength = song['features']['beatstrength']
-
         song_length = songinstance.getSongLength()
+
+        #find out which notes to keep (remove repeated notes)
         ixs = []
         if removeRepeats:
             p_prev=-1
@@ -154,7 +156,12 @@ class PitchContext:
         else:
             ixs = list(range(song_length))
 
-        weights = [0]*len(ixs)
+        #list to store the result
+        weights = [0.0]*len(ixs)
+
+        #on and offsets for selected notes:
+        start_onsets = [onsettick[ix] for ix in ixs]
+        stop_onsets = [song['features']['offsettick'][ix] for ix in ixs]
 
         if accumulateWeight:
             if syncopes:
@@ -162,19 +169,17 @@ class PitchContext:
                 print("Warning: setting accumulateWeight implies syncopes=False.")
             max_onset = len(beatstrengthgrid)-1
             #for each note make span of onsets:
-            start_onsets = [onsettick[ix] for ix in ixs]
-            stop_onsets = [onsettick[ix] for ix in ixs[1:]]+[max_onset] #add end of last note
             for ix, span in enumerate(zip(start_onsets, stop_onsets)):
                 weights[ix] = sum(beatstrengthgrid[span[0]:span[1]])
         else:
             weights = [beatstrength[ix] for ix in ixs]
         
         if syncopes:
-            for ix, span in enumerate(zip(ixs, ixs[1:])):
-                maxbeatstrength = np.max(beatstrengthgrid[onsettick[span[0]]:onsettick[span[1]]])
+            for ix, span in enumerate(zip(start_onsets, stop_onsets)):
+                maxbeatstrength = np.max(beatstrengthgrid[span[0]:span[1]])
                 weights[ix] = maxbeatstrength
 
-        song['features']['weights'] = [0.0] * len(pitch40)
+        song['features']['weights'] = [0.0] * song_length
         for ix, songix in enumerate(ixs):
             song['features']['weights'][songix] = weights[ix]
 
