@@ -10,7 +10,7 @@ import json
 
 import numpy as np
 import music21 as m21
-m21.humdrum.spineParser.flavors['JRP'] = True
+m21.humdrum.spineParser.flavors['JRP'] = True #For triplets
 from IPython import display
 
 #from datetime import datetime
