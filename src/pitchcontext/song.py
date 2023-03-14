@@ -16,13 +16,6 @@ from IPython import display
 #from datetime import datetime
 #print(__file__, datetime.now().strftime("%H:%M:%S"))
 
-#Exception: computed onsets do not match onsets in MTC
-class OnsetMismatchError(Exception):
-    def __init__(self, arg):
-        self.arg = arg
-    def __str__(self):
-        return repr(self.arg)
-
 #Exception: parsing failed
 class ParseError(Exception):
     def __init__(self, arg):
@@ -84,7 +77,7 @@ class Song:
         True if this song object is derived from another song object by removing notes.
     mtcsong : dict
         Dictionary with feature values of all notes of the song, as provided by
-        MTCFeatures
+        MTCFeatures. The values of 'onsettick' are replaced by newly computed onsets.
     krnfilename : string
         Filename of a corresponding **kern file
     s : music21 Stream
@@ -179,25 +172,22 @@ class Song:
     def getOnsets(self):
         """Returns a list of onsets (ints). Onsets are multiples of the duration unit.
 
+        N.B. this replaces the values of the feature 'onsettick' in the MTC json with the
+        newly computed values.
+
         Returns
         -------
         list of int
             Onset for each note.
-
-        Raises
-        ------
-        OnsetMismatchError
-            Raised if the computed onsets do not match with the onsets as provided in MTCFeatures.
-            These should be the same.
         """
         ticksPerQuarter = self.getResolution()
         onsets = [int(n.offset * ticksPerQuarter) for n in self.s.flat.notes]
         #check whether same onsets in songfeatures
         assert len(self.mtcsong['features']['onsettick']) == len(onsets)
         #NB. If initial rests (e.g. NLB142326_01) all onsets are shifted wrt MTC
+        # REPLACE MTC values of onsettics with onsets as computed here (anyway)
         for ix in range(len(onsets)):
-            if self.mtcsong['features']['onsettick'][ix] != onsets[ix] - onsets[0] and self.mtcsong['features']['onsettick'][ix] != onsets[ix]:
-                raise OnsetMismatchError("Onsets do not match. Probably due to a known bug in MTCFeatures.")
+            self.mtcsong['features']['onsettick'][ix] == onsets[ix]                
         return onsets
 
     # s : music21 stream
@@ -310,7 +300,8 @@ class Song:
         self.mtcsong['features']['maxbeatstrength'] = [0.0] * len(self.mtcsong['features']['pitch'])
         self.mtcsong['features']['beatstrengthgrid'] = self.beatstrength_grid
         beatstrength_grid_np = np.array(self.beatstrength_grid)
-        for ix, span in enumerate(zip(self.mtcsong['features']['onsettick'],self.mtcsong['features']['onsettick'][1:])):
+        #for ix, span in enumerate(zip(self.mtcsong['features']['onsettick'],self.mtcsong['features']['onsettick'][1:])):
+        for ix, span in enumerate(zip(self.onsets,self.onsets[1:])):
             self.mtcsong['features']['maxbeatstrength'][ix] = self.mtcsong['features']['beatstrength'][ix]
             if np.max(beatstrength_grid_np[span[0]:span[1]]) > self.mtcsong['features']['beatstrength'][ix]:
                 self.mtcsong['features']['syncope'][ix] = True
