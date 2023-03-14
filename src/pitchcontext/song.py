@@ -187,7 +187,7 @@ class Song:
         #NB. If initial rests (e.g. NLB142326_01) all onsets are shifted wrt MTC
         # REPLACE MTC values of onsettics with onsets as computed here (anyway)
         for ix in range(len(onsets)):
-            self.mtcsong['features']['onsettick'][ix] == onsets[ix]                
+            self.mtcsong['features']['onsettick'][ix] = onsets[ix]                
         return onsets
 
     # s : music21 stream
@@ -295,19 +295,29 @@ class Song:
         """Adds a few features that are needed for computing pitch vectors. One value for each note.
         - syncope: True if the note is a syncope (there is a a higher metric weight in the span of the note than at the start of the note).
         - maxbeatstrength: the highest beatstrenght DURING the note.
+        - offsets: offset tick of the note (first tick AFTER the note)
+        - beatinsong_float: float representation of beatinsong
         """
         self.mtcsong['features']['syncope'] = [False] * len(self.mtcsong['features']['pitch'])
         self.mtcsong['features']['maxbeatstrength'] = [0.0] * len(self.mtcsong['features']['pitch'])
         self.mtcsong['features']['beatstrengthgrid'] = self.beatstrength_grid
         beatstrength_grid_np = np.array(self.beatstrength_grid)
-        #for ix, span in enumerate(zip(self.mtcsong['features']['onsettick'],self.mtcsong['features']['onsettick'][1:])):
-        for ix, span in enumerate(zip(self.onsets,self.onsets[1:])):
+        #offsets
+        self.mtcsong['features']['offsettick'] = [0]*self.getSongLength()
+        ticksperquarter = self.getResolution()
+        for ix in range(self.getSongLength()):
+            duration = int( Fraction(self.mtcsong['features']['duration_frac'][ix]) * ticksperquarter )
+            self.mtcsong['features']['offsettick'][ix] = self.mtcsong['features']['onsettick'][ix] + duration
+        #maxbeatstrength
+        for ix, span in enumerate(zip(self.onsets,self.mtcsong['features']['offsettick'])): # (onset, offset)
+            print(ix, span)
             self.mtcsong['features']['maxbeatstrength'][ix] = self.mtcsong['features']['beatstrength'][ix]
             if np.max(beatstrength_grid_np[span[0]:span[1]]) > self.mtcsong['features']['beatstrength'][ix]:
                 self.mtcsong['features']['syncope'][ix] = True
                 self.mtcsong['features']['maxbeatstrength'][ix] = np.max(beatstrength_grid_np[span[0]:span[1]])
         #final note:
-        self.mtcsong['features']['maxbeatstrength'][-1] = self.mtcsong['features']['beatstrength'][-1]
+        #self.mtcsong['features']['maxbeatstrength'][-1] = self.mtcsong['features']['beatstrength'][-1]
+        #beatinsong_float
         self.mtcsong['features']['beatinsong_float'] = [float(Fraction(b)) for b in self.mtcsong['features']['beatinsong']]
 
     def getReducedSong(self, ixs_remove):
