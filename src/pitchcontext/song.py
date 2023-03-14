@@ -361,6 +361,7 @@ class Song:
                 site.remove(n)
                 continue
 
+            #previous symbol is not a rest
             n_prev = s_new_list[ix-1] #exists
             p_new = copy.deepcopy(s_new_list[ix-1].pitch) #take the pitch object of previous note
             s_new_list[ix].pitch = p_new
@@ -374,6 +375,18 @@ class Song:
                 else:
                     n_prev.tie = m21.tie.Tie('start')
                 n.tie = m21.tie.Tie('stop')
+        #update offsets and durations based on ties:
+        #backward, and stop at 1 (TODO)
+        for ix in reversed(range(1, len(s_new_list))):
+            n = s_new_list[ix]
+            n_prev = s_new_list[ix-1]
+            if n.tie != None:
+                if n.tie.type != 'start':
+                    #copy offset of tied note to previous note
+                    mtcsong_new['features']['offsettick'][ix-1] = mtcsong_new['features']['offsettick'][ix]
+                    #add duration to previous note
+                    mtcsong_new['features']['duration_frac'][ix-1] = str( Fraction(mtcsong_new['features']['duration_frac'][ix-1]) + Fraction(mtcsong_new['features']['duration_frac'][ix]) )
+
         #replace removed notes with rests
         for m in s_new.recurse(classFilter=('Measure')):
             m.makeRests(inPlace=True, fillGaps=True)
@@ -384,6 +397,7 @@ class Song:
         #TODO
 
         #go over all features in mtcsong_new and remove... this will make a mess
+        #for offsettick
         for feat in mtcsong_new['features'].keys():
             for ix in reversed(ixs_remove):
                 if ix != 0: #TODO See above
