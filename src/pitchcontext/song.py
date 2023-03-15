@@ -319,13 +319,18 @@ class Song:
         #beatinsong_float
         self.mtcsong['features']['beatinsong_float'] = [float(Fraction(b)) for b in self.mtcsong['features']['beatinsong']]
 
-    def getReducedSong(self, ixs_remove):
+    def getReducedSong(self, ixs_remove, prolong_previous=False):
         """Create a new Song object without the notes in ixs_removed.
 
         Parameters
         ----------
         ixs_remove : list (int)
             Contains the indices of the notes that need to be removed.
+        prolong_previous : bool
+            If True, replace the to-be-removed note with a prolongation of the previous note.
+            (Because of a bug in music21, this currently does not work if the song contains tuplets.)
+            If False, replace the to-be-removed note with a rest.
+            (Because of a bug in music21, this currently does not work if the song contains tuplets.)
         
         Returns
         -------
@@ -351,46 +356,67 @@ class Song:
             #get note
             n = s_new_list[ix]
 
-            #check whether previous symbol is a rest
-            prev_symbol = n.previous() #seems to work. It takes the right stream.
-            if prev_symbol.isRest:
-                print(ix, ' preceeded by rest')
-                print(n.sites.getSiteIds())
-                site = n.sites.getSitesByClass('Measure')[0] #assume it is the first (and only)
-                print("removing from: ", site)
-                site.remove(n)
-                continue
-
-            #previous symbol is not a rest
-            n_prev = s_new_list[ix-1] #exists
-            p_new = copy.deepcopy(s_new_list[ix-1].pitch) #take the pitch object of previous note
-            s_new_list[ix].pitch = p_new
-            #add ties
-            if n_prev.tie == None:
-                n_prev.tie = m21.tie.Tie('start')
-                n.tie = m21.tie.Tie('stop')
-            else: #previous has tie (must be 'stop')
-                if n_prev.tie.type == 'stop':
-                    n_prev.tie = m21.tie.Tie('continue')
+            if prolong_previous:
+                #check whether previous symbol is a rest
+                prev_symbol = n.previous() #seems to work. It takes the right stream.
+                while not 'Rest' in prev_symbol.classSet and not 'Note' in prev_symbol.classSet:
+                    prev_symbol = prev_symbol.previous()
+                if prev_symbol == None:
+                    print("Beginning of stream encountered. Should not happen.")
                 else:
+                    if prev_symbol.isRest:
+                        site = n.sites.getSitesByClass('Measure')[0] #assume it is the first (and only)
+                        site.remove(n)
+                        continue
+
+                #previous symbol is not a rest
+                n_prev = s_new_list[ix-1] #exists
+                p_new = copy.deepcopy(s_new_list[ix-1].pitch) #take the pitch object of previous note
+                s_new_list[ix].pitch = p_new
+                #add ties
+                if n_prev.tie == None:
                     n_prev.tie = m21.tie.Tie('start')
+                else: #previous has tie (must be 'stop')
+                    if n_prev.tie.type == 'stop':
+                        n_prev.tie = m21.tie.Tie('continue')
+                    elif n_prev.tie.type == 'continue':
+                        print('Tie of previous note should not be of type continue')
+                    else:
+                        print('Tie of previous note should not be of type ', n_prev.tie.type)
                 n.tie = m21.tie.Tie('stop')
+            else: # just remove the note. Will be filled with rests later
+                site = n.sites.getSitesByClass('Measure')[0] #assume it is the first (and only)
+                site.remove(n)
+
         #update offsets and durations based on ties:
         #backward, and stop at 1 (TODO)
-        for ix in reversed(range(1, len(s_new_list))):
-            n = s_new_list[ix]
-            n_prev = s_new_list[ix-1]
-            if n.tie != None:
-                if n.tie.type != 'start':
-                    #copy offset of tied note to previous note
-                    mtcsong_new['features']['offsettick'][ix-1] = mtcsong_new['features']['offsettick'][ix]
-                    #add duration to previous note
-                    mtcsong_new['features']['duration_frac'][ix-1] = str( Fraction(mtcsong_new['features']['duration_frac'][ix-1]) + Fraction(mtcsong_new['features']['duration_frac'][ix]) )
+        if prolong_previous:
+            for ix in reversed(range(1, len(s_new_list))):
+                n = s_new_list[ix]
+                n_prev = s_new_list[ix-1]
+                if n.tie != None:
+                    if n.tie.type != 'start':
+                        #copy offset of tied note to previous note
+                        mtcsong_new['features']['offsettick'][ix-1] = mtcsong_new['features']['offsettick'][ix]
+                        #add duration to previous note
+                        mtcsong_new['features']['duration_frac'][ix-1] = str( Fraction(mtcsong_new['features']['duration_frac'][ix-1]) + Fraction(mtcsong_new['features']['duration_frac'][ix]) )
 
         #replace removed notes with rests
+
+        s_new.show('text')
+
         for m in s_new.recurse(classFilter=('Measure')):
-            m.makeRests(inPlace=True, fillGaps=True)
-        s_new = s_new.stripTies()
+            print("Found measure", m)
+            m.makeRests(inPlace=True, fillGaps=True, timeRangeFromBarDuration=True)
+
+        s_new.show('text', addEndTimes=True)
+
+        #remove ties
+        if prolong_previous:
+            s_new = s_new.stripTies()
+
+        s_new.show('text', addEndTimes=True)
+
 
         #now remove first note (if 0 in ixs_remove)
         #also fix in mtcsong_new (below)
