@@ -403,20 +403,12 @@ class Song:
 
         #replace removed notes with rests
 
-        s_new.show('text')
-
         for m in s_new.recurse(classFilter=('Measure')):
-            print("Found measure", m)
             m.makeRests(inPlace=True, fillGaps=True, timeRangeFromBarDuration=True)
-
-        s_new.show('text', addEndTimes=True)
 
         #remove ties
         if prolong_previous:
             s_new = s_new.stripTies()
-
-        s_new.show('text', addEndTimes=True)
-
 
         #now remove first note (if 0 in ixs_remove)
         #also fix in mtcsong_new (below)
