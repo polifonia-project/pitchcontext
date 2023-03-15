@@ -249,7 +249,7 @@ def computeUnharmonicity(
     epsilon: float = 10e-4
 ):
     """Computes for each note the degree to which it is 'unharmonic'.
-    Each note with beatstrength lower than 0.5, and dissonant in its context is considered 'unharmonic'.
+    Each note with beatstrength lower than beatstrength_threshold, and dissonant in its context is considered 'unharmonic'.
 
     Parameters
     ----------
