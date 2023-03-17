@@ -7,7 +7,12 @@ Library for melody analysis based on pitch context vectors.
 - kernfiles and corresponding .json files with melodic features
 
 ## Installation
-Use the provided pyproject.toml and poetry. In root of the rep do:
+The latest release of the pitchcontext module can be installed from pypi:
+```
+$ pip install pitchcontext
+```
+
+The development version can be installed by cloning the repository and by using the provided pyproject.toml and poetry. In root of the rep do:
 ```
 $ poetry install
 ```
