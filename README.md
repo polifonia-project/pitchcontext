@@ -1,5 +1,23 @@
+---
+component-id: pitchcontext
+name: pitchcontext
+description: Python module for melody analysis based on pitch context vectors.
+type: Library
+release-date: 2023-03-15
+release-number: 0.1.4
+work-package: WP3
+pilot: TUNES
+keywords:
+  - melody
+  - pitch analysis
+changelog:
+licence:
+release link:
+--- 
+
+
 # pitchcontext
-Library for melody analysis based on pitch context vectors.
+Python module for melody analysis based on pitch context vectors.
 
 ## Prerequisites:
 - lilypond installed and in command line path
