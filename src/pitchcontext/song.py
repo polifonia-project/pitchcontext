@@ -629,6 +629,7 @@ class Song:
             symbol["phrase"] = self.mtcsong['features']['phrase_ix'][ix]
             symbol["ima"] = self.mtcsong['features']['imaweight'][ix]
             symbol["phrasepos"] = self.mtcsong['features']['phrasepos'][ix]
+            symbol["beatstrength"] = self.mtcsong['features']['beatstrength'][ix]
             symbols.append(symbol)
         songdictINNER = {}
         songdictINNER['symbols'] = symbols
