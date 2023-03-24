@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 
 from .pitchcontext import PitchContext
 from .song import Song
+from .base40 import base40
 
 #from datetime import datetime
 #print(__file__, datetime.now().strftime("%H:%M:%S"))
@@ -274,3 +275,41 @@ def computeUnharmonicity(
                 unharmonicity[ix] = max ( dissonance[ix] - consonance[ix], 0.0)
                 #unharmonicity[ix] = dissonance[ix] / consonance[ix]
     return unharmonicity
+
+def getChords(pitchcontextvector):
+    #find out whether pitches could be arranged as series of thirds
+    
+    #series of thirds in base40:
+    #[0-4, 11-16, 23-27, 34-39]
+    chordmask = np.ones(40) * -1.0
+    chordmask[2] = 1.0 # root
+    chordmask[11:17] = 1.0 #dim/min/maj/aug third
+    chordmask[23:28] = 1.0 #dim/pure/aug fifth
+    #chordmask[34:40] = 1.0 #dim/min/maj/aug seventh
+
+    print(chordmask)
+
+    #get a value for every rotation of chordmask
+    score_pre = np.zeros(40)
+    score_post = np.zeros(40)
+    score_all = np.zeros(40)
+    for shift in range(40):
+        chordmask_shift = np.roll(chordmask, shift)
+        score_pre[shift]  = np.sum(np.multiply(pitchcontextvector[:40],chordmask_shift))
+        score_post[shift] = np.sum(np.multiply(pitchcontextvector[40:],chordmask_shift))
+        score_all[shift] = np.sum(np.multiply(pitchcontextvector[:40]+pitchcontextvector[40:],chordmask_shift))
+
+    print("pre:")
+    for ix in np.where(pitchcontextvector[:40]>0.)[0]:
+        print(ix, base40[ix], pitchcontextvector[ix])
+
+    print("post:")
+    for ix in np.where(pitchcontextvector[40:]>0.)[0]:
+        print(ix, base40[ix], pitchcontextvector[ix+40])
+    
+    for shift in range(40):
+        print(base40[shift], ': ', score_pre[shift])
+
+    return score_pre, score_post, score_all
+
+
