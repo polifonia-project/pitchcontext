@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pitchcontext"
-version = "0.1.5"
+version = "0.1.6dev"
 description = "Library for melody analysis based on pitch context vectors."
 authors = ["Peter van Kranenburg <peter.van.kranenburg@meertens.knaw.nl>"]
 readme = "README.md"
