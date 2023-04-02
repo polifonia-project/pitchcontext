@@ -350,7 +350,6 @@ class ImpliedHarmony:
 
     def getScaleMask(self):
         scalemask = np.sum(self.wpc.pitchcontext, axis=0, dtype=bool)[:40]
-        scalemask[19:21] = True
         return scalemask
 
     def getOptimalChordSequence(self, chordTransitionScoreFunction=None):
@@ -366,27 +365,29 @@ class ImpliedHarmony:
         #initialization: first note gets its own chords
         score[0] = chords[0]
         for ix in range(1, self.songlength):
-            for pitch in range(80):
-                for chord in range(self.numchords):
-                    #compute all possible transition scores
-                    allscores = np.zeros( (80, self.numchords) )
-                    for prev_pitch in range(80):
-                        for prev_chord in range(self.numchords):
-                            transistionscore = chordTransitionScoreFunction(
-                                chords,
-                                (ix-1,prev_pitch,prev_chord),
-                                (ix, pitch, chord),
-                                scalemask=scalemask
-                            )
-                            allscores[prev_pitch, prev_chord] = score[ix-1, prev_pitch, prev_chord] + transistionscore
-                    #now find max
-                    max_ixs = np.unravel_index(np.argmax(allscores), allscores.shape)
-                    maxscore = allscores[max_ixs]
-                    #update score
-                    score[ix, pitch, chord] = maxscore
-                    #update traceback
-                    traceback[ix, pitch, chord] = max_ixs
+            #find indices of chord1
+            chord1_ixs = np.where(chords[ix-1])
+            #find indices of chord2
+            chord2_ixs = np.where(chords[ix])
         
+            for ixs2 in zip(chord2_ixs[0], chord2_ixs[1]):
+                allscores = np.zeros( (80, self.numchords) )
+                for ixs1 in zip(chord1_ixs[0], chord1_ixs[1]):
+                    transistionscore = chordTransitionScoreFunction(
+                        chords,
+                        (ix-1,ixs1[0],ixs1[1]),
+                        (ix, ixs2[0], ixs2[1]),
+                        scalemask=scalemask
+                    )
+                    allscores[ixs1] = score[ix-1, ixs1[0], ixs1[1]] + transistionscore
+                #now find max
+                max_ixs = np.unravel_index(np.argmax(allscores), allscores.shape)
+                maxscore = allscores[max_ixs]
+                #update score
+                score[ix, ixs2[0], ixs2[1]] = maxscore
+                #update traceback
+                traceback[ix, ixs2[0], ixs2[1]] = max_ixs                
+
         #now do the traceback.
         #find max score for last note
         max_ixs = np.unravel_index(np.argmax(score[-1]), score[-1].shape)
