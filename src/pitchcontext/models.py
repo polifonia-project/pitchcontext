@@ -291,60 +291,206 @@ def computeUnharmonicity(
         unharmonicity[-1] = 0.0  # e.g. NLB123866_01
     return unharmonicity
 
-def getChords(pitchcontextvector):
-    #find out whether pitches could be arranged as series of thirds
-    
-    epsilon = 10e-4
+class ImpliedHarmony:
 
-    chordmask_dim = np.zeros(40)
-    chordmask_min = np.zeros(40)
-    chordmask_maj = np.zeros(40)
-    chordmask_dom = np.zeros(40)
-    chordmask_minseventh = np.zeros(40)
-    np.put(chordmask_dim, [0, 11, 22], 1.0)
-    np.put(chordmask_min, [0, 11, 23], 1.0)
-    np.put(chordmask_maj, [0, 12, 23], 1.0)
-    np.put(chordmask_dom, [0, 12, 23, 34], 1.0)
-    np.put(chordmask_minseventh, [34], 1.0) #used for check presence seventh in dom chord
+    def __init__(self, wpc: 'PitchContext'):
+        self.wpc = wpc
+        self.song = wpc.song
+        self.songlength = self.song.getSongLength()
+        self.params = wpc.params  
+        self.numchords = 0 # will be set in self.initchords()
+        self.chordquality = {} # will be set in self.initchords()
+        self.initchords()
 
-    masks = np.stack([chordmask_dim, chordmask_min, chordmask_maj, chordmask_dom])
-    numchordmasks = masks.shape[0]
+    def initchords(self):
+        chordmask_dim = np.zeros(40)
+        chordmask_min = np.zeros(40)
+        chordmask_maj = np.zeros(40)
+        chordmask_dom = np.zeros(40)
+        np.put(chordmask_dim, [0, 11, 22], 1.0)
+        np.put(chordmask_min, [0, 11, 23], 1.0)
+        np.put(chordmask_maj, [0, 12, 23], 1.0)
+        np.put(chordmask_dom, [0, 12, 23, 34], 1.0)
+        self.chordquality = {
+            0: 'dim',
+            1: 'm',
+            2: '',
+            3: '7'
+        }
+        self.masks = np.stack([chordmask_dim, chordmask_min, chordmask_maj, chordmask_dom])
+        self.numchords = self.masks.shape[0]
 
-    #only take natural tones, and one b or one # as root
-    valid_shifts = [1, 2, 3, 7, 8, 9, 13, 14, 15, 18, 19, 20, 24, 25, 26, 30, 31, 32, 36, 37, 38]
+    def getImpliedHarmony(self):
+        pass
 
-    #get a value for every rotation of the chordmasks
-    score_pre = np.zeros((40, numchordmasks))
-    score_post = np.zeros((40, numchordmasks))
-    score_all = np.zeros((40, numchordmasks))
-    strength_pre = np.zeros((40, numchordmasks))
-    strength_post = np.zeros((40, numchordmasks))
-    strength_all = np.zeros((40, numchordmasks))
-    for shift in range(40):
-        if not shift in valid_shifts:
-            continue
+    def chordTransitionScore(self, chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40, dtype=bool)):
+        #scoring scheme.
+        pitch1 = chord1_ixs[1] % 40
+        pitch2 = chord2_ixs[1] % 40
 
-        chordmask_shift = np.roll(masks, shift, axis=1)
-        chordmask_minseventh_shift = np.roll(chordmask_minseventh, shift)
-                
-        score_pre[shift]  = np.sum(np.multiply(pitchcontextvector[:40],chordmask_shift), axis=1)
-        strength_pre[shift] = score_pre[shift] / np.sum(pitchcontextvector[:40])
-        score_post[shift] = np.sum(np.multiply(pitchcontextvector[40:],chordmask_shift), axis=1)
-        strength_post[shift] = score_post[shift] / np.sum(pitchcontextvector[40:])
-        score_all[shift] = np.sum(np.multiply(pitchcontextvector[:40]+pitchcontextvector[40:],chordmask_shift), axis=1)
-        strength_all[shift] = score_all[shift] / np.sum(pitchcontextvector)
+        #no score if root of chord tones is not in the scalemask)
+        if not scalemask[pitch1] or not scalemask[pitch2]:
+            return 0.0
 
-        #if seventh in dom chord is not present -> erase dom chord
-        if np.sum(np.multiply(chordmask_minseventh_shift,pitchcontextvector[:40])) < epsilon:
-            score_pre[shift][3] = 0.0
-            strength_pre[shift][3] = 0.0
-        if np.sum(np.multiply(chordmask_minseventh_shift,pitchcontextvector[40:])) < epsilon:
-            score_post[shift][3] = 0.0
-            strength_post[shift][3] = 0.0
-        if np.sum(np.multiply(chordmask_minseventh_shift,pitchcontextvector[:40]+pitchcontextvector[:40])) < epsilon:
-            score_all[shift][3] = 0.0
-            strength_all[shift][3] = 0.0
+        #else compute score step by step
 
-    return score_pre, score_post, score_all, strength_pre, strength_post, strength_all
+        # 1. start with score for 'next' chord
+        score = chords[chord2_ixs]
 
+        # 2. penalty for changing root
+        if pitch1 != pitch2:
+            score = score * 0.8
+        
+        # 3. prefer root movement of fourth and fifth
+        #shift = (pitch2 - pitch1) % 40 #interval of roots in base40
+        #if shift != 17 and shift != 23 and shift !=0:
+        #    score = score * 0.8
+
+        return score
+
+    def getScaleMask(self):
+        scalemask = np.sum(self.wpc.pitchcontext, axis=0, dtype=bool)[:40]
+        scalemask[19:21] = True
+        return scalemask
+
+    def getOptimalChordSequence(self, chordTransitionScoreFunction=None):
+        if chordTransitionScoreFunction == None:
+            chordTransitionScoreFunction = self.chordTransitionScore
+        scalemask = self.getScaleMask()
+        chords    = self.getChords()
+        score     = np.zeros( (self.songlength, 80, self.numchords) )
+        traceback = np.zeros( (self.songlength, 80, self.numchords, 2), dtype=int ) #coordinates (pitch, chord) for previous chord
+        trace     = np.zeros( (self.songlength, 4), dtype=int ) # (pitch, chord, score, score_diff) for each note
+        
+
+        #initialization: first note gets its own chords
+        score[0] = chords[0]
+        for ix in range(1, self.songlength):
+            for pitch in range(80):
+                for chord in range(self.numchords):
+                    #compute all possible transition scores
+                    allscores = np.zeros( (80, self.numchords) )
+                    for prev_pitch in range(80):
+                        for prev_chord in range(self.numchords):
+                            transistionscore = chordTransitionScoreFunction(
+                                chords,
+                                (ix-1,prev_pitch,prev_chord),
+                                (ix, pitch, chord),
+                                scalemask=scalemask
+                            )
+                            allscores[prev_pitch, prev_chord] = score[ix-1, prev_pitch, prev_chord] + transistionscore
+                    #now find max
+                    max_ixs = np.unravel_index(np.argmax(allscores), allscores.shape)
+                    maxscore = allscores[max_ixs]
+                    #update score
+                    score[ix, pitch, chord] = maxscore
+                    #update traceback
+                    traceback[ix, pitch, chord] = max_ixs
+        
+        #now do the traceback.
+        #find max score for last note
+        max_ixs = np.unravel_index(np.argmax(score[-1]), score[-1].shape)
+        trace[-1] = (max_ixs[0], max_ixs[1], score[-1,max_ixs[0], max_ixs[1]], 0)
+        for ix in range(self.songlength-2, -1, -1):
+            trace_ixs = traceback[ix+1,trace[ix+1][0],trace[ix+1][1]]
+            thisscore = score[ix,trace_ixs[0], trace_ixs[1]]
+            trace[ix] = (trace_ixs[0], trace_ixs[1], thisscore, 0)
+        
+        for ix in range(1, self.songlength):
+            trace[ix][3] = trace[ix][2] - trace[ix-1][2]
+
+        return trace, score, traceback
+
+    def trace2str(self, trace):
+        return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] for ix in range(self.songlength)]
+
+
+    def getChords(self):
+        #prepare data structure:
+        chords = np.zeros( (self.songlength, 80, self.numchords ) ) # number of notes, 40 pre-pitches+40post-pitches, 4 chords (dim,min,maj,dom)
+        for ix in range(self.songlength):
+            scores = self.getChordsForNote(self.wpc.pitchcontext[ix], normalize=True)
+            chords[ix] = np.multiply(
+                np.concatenate((scores['score_pre'],    scores['score_post'])),
+                np.concatenate((scores['strength_pre'], scores['strength_post']))
+            )
+        return chords
+
+
+    def getChordsForNote(self, pitchcontextvector, normalize=True, useScalemask=True):
+        #find out whether pitches could be arranged as series of thirds
+        
+        epsilon = 10e-4
+        chordmask_minseventh = np.zeros(40)
+        np.put(chordmask_minseventh, [34], 1.0) #used for check presence seventh in dom chord
+
+        if useScalemask:
+            scalemask = self.getScaleMask()
+        else:
+            scalemask = np.ones(40, dtype=bool)
+
+        #only take natural tones, and one b or one # as root
+        valid_shifts = [1, 2, 3, 7, 8, 9, 13, 14, 15, 18, 19, 20, 24, 25, 26, 30, 31, 32, 36, 37, 38]
+
+        #get a value for every rotation of the chordmasks
+        score_pre = np.zeros((40, self.numchords))
+        score_post = np.zeros((40, self.numchords))
+        score_all = np.zeros((40, self.numchords))
+        strength_pre = np.zeros((40, self.numchords))
+        strength_post = np.zeros((40, self.numchords))
+        strength_all = np.zeros((40, self.numchords))
+        for shift in range(40):
+            if not shift in valid_shifts:
+                continue
+
+            chordmask_shift = np.roll(self.masks, shift, axis=1)
+            chordmask_minseventh_shift = np.roll(chordmask_minseventh, shift)
+
+            for maskid in range(self.numchords):
+                if np.prod(scalemask[np.where(chordmask_shift[maskid])]) < epsilon:
+                    chordmask_shift[maskid] = 0
+
+            score_pre[shift]  = np.sum(np.multiply(pitchcontextvector[:40],chordmask_shift), axis=1)
+            strength_pre[shift] = score_pre[shift] / np.sum(pitchcontextvector[:40])
+            score_post[shift] = np.sum(np.multiply(pitchcontextvector[40:],chordmask_shift), axis=1)
+            strength_post[shift] = score_post[shift] / np.sum(pitchcontextvector[40:])
+            score_all[shift] = np.sum(np.multiply(pitchcontextvector[:40]+pitchcontextvector[40:],chordmask_shift), axis=1)
+            strength_all[shift] = score_all[shift] / np.sum(pitchcontextvector)
+
+            #if seventh in dom chord is not present -> erase dom chord
+            if np.sum(np.multiply(chordmask_minseventh_shift,pitchcontextvector[:40])) < epsilon:
+                score_pre[shift][3] = 0.0
+                strength_pre[shift][3] = 0.0
+            if np.sum(np.multiply(chordmask_minseventh_shift,pitchcontextvector[40:])) < epsilon:
+                score_post[shift][3] = 0.0
+                strength_post[shift][3] = 0.0
+            if np.sum(np.multiply(chordmask_minseventh_shift,pitchcontextvector[:40]+pitchcontextvector[:40])) < epsilon:
+                score_all[shift][3] = 0.0
+                strength_all[shift][3] = 0.0
+
+        if normalize:
+            if np.sum(score_pre) > 0.0:
+                score_pre  = score_pre / np.max(score_pre)
+            if np.sum(score_post) > 0.0:
+                score_post = score_post / np.max(score_post)
+            if np.sum(score_all) > 0.0:
+                score_all  = score_all / np.max(score_all)
+
+        return {
+            'score_pre':score_pre,
+            'score_post':score_post,
+            'score_all':score_all,
+            'strength_pre':strength_pre,
+            'strength_post':strength_post,
+            'strength_all':strength_all
+        }
+
+    def printChordsForNote(self, score, strength):
+        chordixs = np.where(score > 0)
+        chords = []
+
+        for ix in zip(chordixs[0], chordixs[1]):
+            chords.append((base40[ix[0]], self.chordquality[ix[1]], score[ix], strength[ix], score[ix] * strength[ix]))
+        for chord in sorted(chords, key=lambda x: x[4], reverse=True):
+            print(chord)
 
