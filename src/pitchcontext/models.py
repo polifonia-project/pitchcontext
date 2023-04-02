@@ -451,12 +451,15 @@ class ImpliedHarmony:
                 if np.prod(scalemask[np.where(chordmask_shift[maskid])]) < epsilon:
                     chordmask_shift[maskid] = 0
 
-            score_pre[shift]  = np.sum(np.multiply(pitchcontextvector[:40],chordmask_shift), axis=1)
-            strength_pre[shift] = score_pre[shift] / np.sum(pitchcontextvector[:40])
+            if np.sum(pitchcontextvector[:40]) > 0.0:
+                strength_pre[shift] = score_pre[shift] / np.sum(pitchcontextvector[:40])
             score_post[shift] = np.sum(np.multiply(pitchcontextvector[40:],chordmask_shift), axis=1)
-            strength_post[shift] = score_post[shift] / np.sum(pitchcontextvector[40:])
+            if np.sum(pitchcontextvector[40:]) > 0.0:
+                strength_post[shift] = score_post[shift] / np.sum(pitchcontextvector[40:])
             score_all[shift] = np.sum(np.multiply(pitchcontextvector[:40]+pitchcontextvector[40:],chordmask_shift), axis=1)
-            strength_all[shift] = score_all[shift] / np.sum(pitchcontextvector)
+            if np.sum(pitchcontextvector) > 0.0:
+                strength_all[shift] = score_all[shift] / np.sum(pitchcontextvector)
+
 
             #if seventh in dom chord is not present -> erase dom chord
             if np.sum(np.multiply(chordmask_minseventh_shift,pitchcontextvector[:40])) < epsilon:
