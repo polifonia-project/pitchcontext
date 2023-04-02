@@ -73,7 +73,7 @@ class ComputePitchContextBeats(ComputePitchContext):
     def __init__(self, wpc: 'PitchContext'):
         super().__init__(wpc)
         #compute some extra features. LENGTH: wpc.ixs
-        self.songlength_beat = float(sum([Fraction(length) for length in self.song.mtcsong['features']['beatfraction']])) #length of the song in beats
+        self.songlength_beat = self.song.mtcsong['features']['beatinsong_float'][wpc.ixs[-1]] + float(Fraction(self.song.mtcsong['features']['beatfraction'][wpc.ixs[-1]])) - self.song.mtcsong['features']['beatinsong_float'][0]
         self.beatinsong = np.array([self.song.mtcsong['features']['beatinsong_float'][ix] for ix in wpc.ixs])
         self.beatinsong_next = np.append(self.beatinsong[1:],self.songlength_beat+self.beatinsong[0]) #first beatinsong might be negative (upbeat)
 
