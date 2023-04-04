@@ -291,6 +291,10 @@ def computeUnharmonicity(
         unharmonicity[-1] = 0.0  # e.g. NLB123866_01
     return unharmonicity
 
+def computeAccented(song: Song, level, epsilon: float = 10e-4):
+    return [True if song.mtcsong['features']['beatstrength'][ix] >= (level-epsilon) else False for ix in range(song.getSongLength())]
+
+
 class ImpliedHarmony:
 
     def __init__(self, wpc: 'PitchContext'):
@@ -320,13 +324,13 @@ class ImpliedHarmony:
         self.masks = np.stack([chordmask_dim, chordmask_min, chordmask_maj, chordmask_dom])
         self.numchords = self.masks.shape[0]
 
-    def getImpliedHarmony(self):
-        pass
+    def chordTransitionScore(self, chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40, dtype=bool), song=None, wpc=None):
 
-    def chordTransitionScore(self, chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40, dtype=bool)):
         #scoring scheme.
         pitch1 = chord1_ixs[1] % 40
         pitch2 = chord2_ixs[1] % 40
+        songlength = song.songlength
+        shift = (pitch2 - pitch1) % 40 #interval of roots in base40
 
         #no score if root of chord tones is not in the scalemask)
         if not scalemask[pitch1] or not scalemask[pitch2]:
@@ -334,33 +338,167 @@ class ImpliedHarmony:
 
         #else compute score step by step
 
-        # 1. start with score for 'next' chord
+        # start with score for 'next' chord
         score = chords[chord2_ixs]
 
-        # 2. penalty for changing root
-        if pitch1 != pitch2:
+        # Discourage same root, different quality #except maj -> dom
+        if pitch1 == pitch2:
+            if chord1_ixs[2] != chord2_ixs[2]:
+                if  not ( chord1_ixs[2] == 2 and chord2_ixs[2] == 3 ):
+                    score = score * 0.1
+
+        # discourage root change on note with low metric weight
+        if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] < 0.5:
+            if pitch1 != pitch2:
+                score = score * 0.5
+
+        # penalty for harmonically distant
+        # HOW TO DO THIS?
+        # e.g. we do not want 
+
+        # prefer root movement of fourth and fifth
+        if shift != 17 and shift != 23 and shift !=0:
             score = score * 0.8
-        
-        # 3. prefer root movement of fourth and fifth
-        #shift = (pitch2 - pitch1) % 40 #interval of roots in base40
-        #if shift != 17 and shift != 23 and shift !=0:
-        #    score = score * 0.8
+
+        # strongly prefer V-I relation for final note
+        if chord2_ixs[0] == songlength - 1:
+            if shift != 17:
+                score = score * 0.5
+
+        # If previous is dom. Then root must be fourth up
+        if chord1_ixs[2] == 3:
+            if shift != 17:
+                score = score * 0.1
+
+        # if root is fourth up: prefer maj or dom for first chord
+        if shift == 17:
+            if chord1_ixs[2] == 0 or chord1_ixs[2] == 1:
+                score = score * 0.8
+
+        #  root or third in melody for last note
+        if chord2_ixs[0] == songlength - 1:
+            melp40 = song.mtcsong['features']['pitch40'][songlength-1] - 1
+            root_int = (melp40 - pitch2) % 40
+            if not root_int in [0, 11, 12]:
+                score = 0.
 
         return score
 
-    def getScaleMask(self):
-        scalemask = np.sum(self.wpc.pitchcontext, axis=0, dtype=bool)[:40]
+    # if extendToAllNaturalTones, also include tones that are 'missing'. E.g. NLB070513_01 in G, but no F#
+    # include all alterations. So, no F in melody, include Fb, F, and F#
+    def getScaleMask(self, extendToAllNaturalTones=False):
+
+        naturals = np.ones(7, dtype=bool) #[F C G D A E B]
+        naturalixs = np.array([19, 2, 25, 8, 31, 14, 37])
+        naturalsix = np.zeros(40, dtype=int)
+        naturalsix[30:33] = 4 #A
+        naturalsix[36:39] = 6 #B
+        naturalsix[1:4]   = 1 #C
+        naturalsix[7:10]  = 3 #D
+        naturalsix[13:16] = 5 #E
+        naturalsix[18:21] = 0 #F
+        naturalsix[24:27] = 2 #G
+
+        scalemask = np.zeros(40)
+        for ix in range(self.songlength):
+            p40 = (self.song.mtcsong['features']['pitch40'][ix] - 1) % 40
+            scalemask[p40] = True
+            naturals[naturalsix[p40]] = False
+
+        if extendToAllNaturalTones:
+            #add missing tones
+            #flats
+            for ix in sorted(list(np.where(naturals)[0])): #from F->B order is important, more than one tone might be missing. first fix tones far away from C
+                #figure out whether to add flat
+
+                missing       = naturalixs[ix]
+                missingflat   = missing - 1 
+                fifthdown     = naturalixs[(ix - 1) % 7]
+                fifthdownflat = fifthdown - 1
+                fifthup       = naturalixs[(ix + 1) % 7]
+                fifthupflat   = fifthup - 1
+                fifthupsharp  = fifthup + 1
+
+                #### SOLVE MINOR, leading tone (if not in melody)
+
+                if ix == 0:
+                    #When Fb? Only if Cb is present
+                    if scalemask[fifthupflat]:
+                        scalemask[missingflat] = True
+                    #when F? If no C#
+                    if not scalemask[fifthupsharp]:
+                        scalemask[missing] = True
+                    continue
+                
+                if ix == 6: #Bb ?
+                    #When Bb? If Eb is present or if F is present
+                    if scalemask[fifthdownflat] or scalemask[fifthup]:
+                        scalemask[missingflat] = True
+                    #when B? always - We deal with B# below
+                    scalemask[missing] = True
+                    continue
+
+                if scalemask[fifthdownflat]:
+                    scalemask[missingflat] = True
+                elif scalemask[fifthdown] and scalemask[fifthup]:
+                    scalemask[missing] = True
+                elif scalemask[fifthdown] and scalemask[fifthupflat]:
+                    scalemask[missingflat] = True
+                    scalemask[missing] = True
+
+            #sharps
+            for ix in sorted(list(np.where(naturals)[0]), reverse=True): #from B->F order is important, more than one tone might be missing. first fix tones far away from C
+                
+                #figure out whether to add flat
+
+                missing        = naturalixs[ix]
+                missingsharp   = missing + 1 
+                fifthdown      = naturalixs[(ix - 1) % 7]
+                fifthdownsharp = fifthdown + 1
+                fifthup        = naturalixs[(ix + 1) % 7]
+                fifthupsharp   = fifthup + 1
+                fifthupflat    = fifthup - 1
+
+                if ix == 6: # B#?
+                    #when B#? If E# present
+                    if scalemask[fifthdownsharp]:
+                        scalemask[missingsharp] = True
+                    #when B? when No flats (i.e. no Eb)
+                    if not scalemask[fifthdownflat]:
+                        scalemask[missing] = True
+                    continue
+
+                if ix == 0: # F#?
+                    #when F#? If C# present or if B present
+                    if scalemask[fifthupsharp] or scalemask[fifthdown]:
+                        scalemask[missingsharp] = True
+                    #when F? If Bb not present (deal with Bb above)
+                    if not scalemask[fifthdownflat]:
+                        scalemask[missing] = True
+                    continue
+
+                if scalemask[fifthupsharp]:
+                    scalemask[missingsharp] = True
+                elif scalemask[fifthup] and scalemask[fifthdown]:
+                    scalemask[missing] = True
+                elif scalemask[fifthdownsharp] and scalemask[fifthup]:
+                    scalemask[missingsharp] = True
+                    scalemask[missing] = True
+
         return scalemask
 
     def getOptimalChordSequence(self, chordTransitionScoreFunction=None):
+
         if chordTransitionScoreFunction == None:
             chordTransitionScoreFunction = self.chordTransitionScore
-        scalemask = self.getScaleMask()
-        chords    = self.getChords()
-        score     = np.zeros( (self.songlength, 80, self.numchords) )
-        traceback = np.zeros( (self.songlength, 80, self.numchords, 2), dtype=int ) #coordinates (pitch, chord) for previous chord
-        trace     = np.zeros( (self.songlength, 4), dtype=int ) # (pitch, chord, score, score_diff) for each note
-        
+
+        scalemask  = self.getScaleMask(extendToAllNaturalTones=True)
+        chords     = self.getChords()
+        numpitches = chords.shape[1]        
+        score      = np.zeros( (self.songlength, numpitches, self.numchords) )
+        traceback  = np.zeros( (self.songlength, numpitches, self.numchords, 2), dtype=int ) #coordinates (pitch, chord) for previous chord
+        trace      = np.zeros( (self.songlength, 4), dtype=int ) # (pitch, chord, score, score_diff) for each note
+
 
         #initialization: first note gets its own chords
         score[0] = chords[0]
@@ -371,13 +509,15 @@ class ImpliedHarmony:
             chord2_ixs = np.where(chords[ix])
         
             for ixs2 in zip(chord2_ixs[0], chord2_ixs[1]):
-                allscores = np.zeros( (80, self.numchords) )
+                allscores = np.zeros( (numpitches, self.numchords) )
                 for ixs1 in zip(chord1_ixs[0], chord1_ixs[1]):
                     transistionscore = chordTransitionScoreFunction(
                         chords,
                         (ix-1,ixs1[0],ixs1[1]),
                         (ix, ixs2[0], ixs2[1]),
-                        scalemask=scalemask
+                        scalemask=scalemask,
+                        song=self.song,
+                        wpc=self.wpc
                     )
                     allscores[ixs1] = score[ix-1, ixs1[0], ixs1[1]] + transistionscore
                 #now find max
@@ -405,18 +545,17 @@ class ImpliedHarmony:
     def trace2str(self, trace):
         return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] for ix in range(self.songlength)]
 
-
     def getChords(self):
         #prepare data structure:
-        chords = np.zeros( (self.songlength, 80, self.numchords ) ) # number of notes, 40 pre-pitches+40post-pitches, 4 chords (dim,min,maj,dom)
+        numpitches = 120 # 40 pre, 40 post, 40 all
+        chords = np.zeros( (self.songlength, numpitches, self.numchords ) ) # number of notes, 40 pre-pitches+40post-pitches, 4 chords (dim,min,maj,dom)
         for ix in range(self.songlength):
-            scores = self.getChordsForNote(self.wpc.pitchcontext[ix], normalize=True)
+            scores, strengths = self.getChordsForNote(self.wpc.pitchcontext[ix], normalize=True)
             chords[ix] = np.multiply(
-                np.concatenate((scores['score_pre'],    scores['score_post'])),
-                np.concatenate((scores['strength_pre'], scores['strength_post']))
+                scores,
+                strengths
             )
         return chords
-
 
     def getChordsForNote(self, pitchcontextvector, normalize=True, useScalemask=True):
         #find out whether pitches could be arranged as series of thirds
@@ -426,7 +565,7 @@ class ImpliedHarmony:
         np.put(chordmask_minseventh, [34], 1.0) #used for check presence seventh in dom chord
 
         if useScalemask:
-            scalemask = self.getScaleMask()
+            scalemask = self.getScaleMask(extendToAllNaturalTones=True)
         else:
             scalemask = np.ones(40, dtype=bool)
 
@@ -447,17 +586,19 @@ class ImpliedHarmony:
             chordmask_shift = np.roll(self.masks, shift, axis=1)
             chordmask_minseventh_shift = np.roll(chordmask_minseventh, shift)
 
+            #only accept chords which have all notes in the scale (might fail when scale tones do not occur in the melody e.g. NLB070513_01 in G, but no F#)
             for maskid in range(self.numchords):
                 if np.prod(scalemask[np.where(chordmask_shift[maskid])]) < epsilon:
                     chordmask_shift[maskid] = 0
 
-            if np.sum(pitchcontextvector[:40]) > 0.0:
+            score_pre[shift] = np.sum(np.multiply(pitchcontextvector[:40],chordmask_shift), axis=1)
+            if np.sum(pitchcontextvector[:40]) > epsilon:
                 strength_pre[shift] = score_pre[shift] / np.sum(pitchcontextvector[:40])
             score_post[shift] = np.sum(np.multiply(pitchcontextvector[40:],chordmask_shift), axis=1)
-            if np.sum(pitchcontextvector[40:]) > 0.0:
+            if np.sum(pitchcontextvector[40:]) > epsilon:
                 strength_post[shift] = score_post[shift] / np.sum(pitchcontextvector[40:])
             score_all[shift] = np.sum(np.multiply(pitchcontextvector[:40]+pitchcontextvector[40:],chordmask_shift), axis=1)
-            if np.sum(pitchcontextvector) > 0.0:
+            if np.sum(pitchcontextvector) > epsilon:
                 strength_all[shift] = score_all[shift] / np.sum(pitchcontextvector)
 
 
@@ -480,21 +621,98 @@ class ImpliedHarmony:
             if np.sum(score_all) > 0.0:
                 score_all  = score_all / np.max(score_all)
 
-        return {
-            'score_pre':score_pre,
-            'score_post':score_post,
-            'score_all':score_all,
-            'strength_pre':strength_pre,
-            'strength_post':strength_post,
-            'strength_all':strength_all
-        }
+        scores    = np.concatenate( (score_pre, score_post, score_all) )
+        strengths = np.concatenate( (strength_pre, strength_post, strength_all) )
 
-    def printChordsForNote(self, score, strength):
-        chordixs = np.where(score > 0)
-        chords = []
+        return scores, strengths
+    
+    def printChordsForNote(self, scores, strengths):
+        epsilon = 10e-4
+        chordixs = np.where(scores > epsilon)
+        chords_pre = []
+        chords_post = []
+        chords_all = []
 
         for ix in zip(chordixs[0], chordixs[1]):
-            chords.append((base40[ix[0]], self.chordquality[ix[1]], score[ix], strength[ix], score[ix] * strength[ix]))
-        for chord in sorted(chords, key=lambda x: x[4], reverse=True):
-            print(chord)
+            info = (base40[ix[0] % 40], self.chordquality[ix[1]], scores[ix], strengths[ix], scores[ix] * strengths[ix])
+            if ix[0] < 40:
+                chords_pre.append(info)
+            else:
+                if ix[0] < 80:
+                    chords_post.append(info)
+                else:
+                    chords_all.append(info)
+        
+        print('pre:')
+        for info in sorted(chords_pre, key=lambda x: x[4], reverse=True):
+            print(info)
 
+        print('post:')
+        for info in sorted(chords_pre, key=lambda x: x[4], reverse=True):
+            print(info)
+
+        print('all:')
+        for info in sorted(chords_pre, key=lambda x: x[4], reverse=True):
+            print(info)
+
+    def printChord(self, chord_in):
+        chordixs = np.where(chord_in > 0)
+        chords = []
+        
+        for ix in zip(chordixs[0], chordixs[1]):
+            pitch = ix[0] % 40
+            chords.append((ix[0], base40[pitch], self.chordquality[ix[1]], chord_in[ (ix[0], ix[1]) ]))
+        for chord in sorted(chords, key=lambda x: x[3], reverse=True):
+            print(chord)
+    
+    #chords: output of getChords
+    #transition from ix1 to ix2
+    def printAllTransitions(self, chords, ix1, ix2, scores=None, chordTransitionScoreFunction=None, scalemask=np.ones(40, dtype=bool)):
+        if chordTransitionScoreFunction == None:
+            chordTransitionScoreFunction = self.chordTransitionScore
+        if scores is None:
+            scores = np.zeros([chords.shape[0], chords.shape[1], self.numchords])
+        
+        #find indices of chord1
+        chord1_ixs = np.where(chords[ix1])
+        #find indices of chord2
+        chord2_ixs = np.where(chords[ix2])
+    
+        transitions = []
+        for ixs2 in zip(chord2_ixs[0], chord2_ixs[1]):
+            for ixs1 in zip(chord1_ixs[0], chord1_ixs[1]):
+                transistionscore = chordTransitionScoreFunction(
+                    chords,
+                    (ix1,ixs1[0],ixs1[1]),
+                    (ix2, ixs2[0], ixs2[1]),
+                    scalemask=scalemask,
+                    song=self.song,
+                    wpc=self.wpc
+                )
+                side1 = 'pre'
+                if ixs1[0] > 39:
+                    if ixs1[0] > 79:
+                        side1 = 'all'
+                    else:
+                        side2 = 'post'
+                side2 = 'pre'
+                if ixs2[0] > 39:
+                    if ixs2[0] > 79:
+                        side2 = 'all'
+                    else:
+                        side2 = 'post'
+                #report transition:
+                transitions.append((
+                    base40[ixs1[0] % 40],
+                    self.chordquality[ixs1[1]],
+                    side1,
+                    '->',
+                    base40[ixs2[0] % 40],
+                    self.chordquality[ixs2[1]],
+                    side2,
+                    transistionscore,
+                    scores[ix1, ixs1[0], ixs1[1]],
+                    transistionscore + scores[ix1, ixs1[0], ixs1[1]],
+                ))
+        for tr in sorted(transitions, key=lambda x: x[9], reverse=True):
+            print(' '.join([str(t) for t in tr]))
