@@ -492,13 +492,13 @@ class ImpliedHarmony:
         if chordTransitionScoreFunction == None:
             chordTransitionScoreFunction = self.chordTransitionScore
 
-        scalemask  = self.getScaleMask(extendToAllNaturalTones=True)
-        chords     = self.getChords()
-        numpitches = chords.shape[1]        
-        score      = np.zeros( (self.songlength, numpitches, self.numchords) )
-        traceback  = np.zeros( (self.songlength, numpitches, self.numchords, 2), dtype=int ) #coordinates (pitch, chord) for previous chord
-        trace      = np.zeros( (self.songlength, 4), dtype=int ) # (pitch, chord, score, score_diff) for each note
-
+        scalemask   = self.getScaleMask(extendToAllNaturalTones=True)
+        chords      = self.getChords()
+        numpitches  = chords.shape[1]        
+        score       = np.zeros( (self.songlength, numpitches, self.numchords) )
+        traceback   = np.zeros( (self.songlength, numpitches, self.numchords, 2), dtype=int ) #coordinates (pitch, chord) for previous chord
+        trace       = np.zeros( (self.songlength, 2), dtype=int ) # (pitch, chord) for each note
+        trace_score = np.zeros( (self.songlength, 2) ) # (score, score_diff) for each note
 
         #initialization: first note gets its own chords
         score[0] = chords[0]
@@ -531,16 +531,18 @@ class ImpliedHarmony:
         #now do the traceback.
         #find max score for last note
         max_ixs = np.unravel_index(np.argmax(score[-1]), score[-1].shape)
-        trace[-1] = (max_ixs[0], max_ixs[1], score[-1,max_ixs[0], max_ixs[1]], 0)
+        trace[-1] = (max_ixs[0], max_ixs[1])
+        trace_score[-1] = (score[-1,max_ixs[0], max_ixs[1]], 0)
         for ix in range(self.songlength-2, -1, -1):
             trace_ixs = traceback[ix+1,trace[ix+1][0],trace[ix+1][1]]
             thisscore = score[ix,trace_ixs[0], trace_ixs[1]]
-            trace[ix] = (trace_ixs[0], trace_ixs[1], thisscore, 0)
-        
-        for ix in range(1, self.songlength):
-            trace[ix][3] = trace[ix][2] - trace[ix-1][2]
+            trace[ix] = (trace_ixs[0], trace_ixs[1])
+            trace_score[ix][0] = thisscore
 
-        return trace, score, traceback
+        for ix in range(1, self.songlength):
+            trace_score[ix][1] = trace_score[ix][0] - trace_score[ix-1][0]
+
+        return trace, trace_score, score, traceback
 
     def trace2str(self, trace):
         return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] for ix in range(self.songlength)]
