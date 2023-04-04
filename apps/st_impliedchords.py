@@ -117,8 +117,16 @@ with st.sidebar:
         value=0.1
     )
 
+    dim_m2_slider = st.slider(
+        'Multiplier NO minor second after dim',
+        min_value=0.0,
+        max_value=1.0,
+        step=0.05,
+        value=0.1
+    )
+
     fourth_dom_slider = st.slider(
-        'Multiplier major or dominant before 4th up',
+        'Multiplier NO major or dominant before 4th up',
         min_value=0.0,
         max_value=1.0,
         step=0.05,
@@ -252,7 +260,7 @@ def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40,
     # discourage root change on note with low metric weight
     if lowweight_check:
         if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] < 0.5:
-            if pitch1 != pitch2:
+            if pitch1 != pitch2 or chord1_ixs[2] != chord2_ixs[2]:
                 score = -100.
 
     # penalty for harmonically distant
@@ -273,6 +281,11 @@ def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40,
         if shift != 17:
             score = score * dom_fourth_slider
 
+    # 5. If previous is dim. Then root must be semitone up
+    if chord1_ixs[2] == 0:
+        if shift != 5:
+            score = score * dim_m2_slider
+
     # if root is fourth up: prefer maj or dom for first chord
     if shift == 17:
         if chord1_ixs[2] == 0 or chord1_ixs[2] == 1:
@@ -289,7 +302,7 @@ def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40,
 
 ih = ImpliedHarmony(wpc)
 
-trace, score, traceback = ih.getOptimalChordSequence(chordTransitionScoreFunction=myChordTransitionScore)
+trace, trace_score, score, traceback = ih.getOptimalChordSequence(chordTransitionScoreFunction=myChordTransitionScore)
 strtrace = ih.trace2str(trace)
 
 #replace same chord
@@ -324,6 +337,7 @@ with col1:
 
 with col2:
     report = wpc.printReport(
+        chordscore = [tr[1] for tr in trace_score]
     )
     components.html(f"<pre>{report}</pre>", height=650, scrolling=True)
 
