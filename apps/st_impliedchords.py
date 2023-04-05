@@ -78,9 +78,14 @@ with st.sidebar:
         step=0.05,
         value=0.1
     )
+    granularity_threshold = st.radio(    
+        "Don't allow change on notes with beatstrength < (0: allow all)",
+        (1.0, 0.5, 0.25, 0.125, 0),
+        index=4,
+    )
 
-    lowweight_check = st.checkbox(
-        "No chord change on low metric weight",
+    allowmajdom_check = st.checkbox(
+        "above, but except maj->dom with the same root.",
         value=True
     )
 
@@ -257,11 +262,15 @@ def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40,
             if  not ( chord1_ixs[2] == 2 and chord2_ixs[2] == 3 ):
                 score = score * same_root_slider
 
-    # discourage root change on note with low metric weight
-    if lowweight_check:
-        if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] < 0.5:
-            if pitch1 != pitch2 or chord1_ixs[2] != chord2_ixs[2]:
-                score = -100.
+    # discourage root, and/or quality change on note with low metric weight (except maj->dom on same root)
+    if granularity_threshold > 0:
+        if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] < granularity_threshold:
+            if allowmajdom_check:
+                if (pitch1 != pitch2) or ( (pitch1 == pitch2) and ((chord1_ixs[2] != chord2_ixs[2]) and not (chord1_ixs[2] == 2 and chord2_ixs[2] == 3)) ):
+                    score = -100
+            else:
+                if pitch1 != pitch2:
+                    score = -100
 
     # penalty for harmonically distant
     # HOW TO DO THIS?
@@ -332,6 +341,37 @@ with col1:
     )
     image = Image.open(pngfn_orig)
     st.image(image, output_format='PNG', use_column_width=True)
+
+    #write parameters
+    st.subheader("Parameter settings")
+    st.text(f"{songid=}")
+    st.text(f"{krnpath=}")
+    st.text(f"{jsonpath=}")
+    st.text(f"{same_root_slider=}")
+    st.text(f"{granularity_threshold=}")
+    st.text(f"{allowmajdom_check=}")
+    st.text(f"{root_third_final_check=}")
+    st.text(f"{use_scalemask_check=}")
+    st.text(f"{no_fourth_fifth_slider=}")
+    st.text(f"{final_v_i_slider=}")
+    st.text(f"{dom_fourth_slider=}")
+    st.text(f"{dim_m2_slider=}")
+    st.text(f"{fourth_dom_slider=}")
+    st.text(f"{pre_c_slider=}")
+    st.text(f"{post_c_slider=}")
+    st.text(f"{preauto_check=}")
+    st.text(f"{postauto_check=}")
+    st.text(f"{partialnotes_check=}")
+    st.text(f"{removerep_check=}")
+    st.text(f"{accweight_check=}")
+    st.text(f"{include_focus_pre_check=}")
+    st.text(f"{include_focus_post_check=}")
+    st.text(f"{pre_usemw_check=}")
+    st.text(f"{post_usemw_check=}")
+    st.text(f"{pre_usedw_check=}")
+    st.text(f"{post_usedw_check=}")
+    st.text(f"{mindistw_pre_slider=}")
+    st.text(f"{mindistw_post_slider=}")
 
 #st.write(asdict(wpc.params))
 
