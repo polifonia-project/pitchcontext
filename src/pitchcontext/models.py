@@ -400,7 +400,7 @@ class ImpliedHarmony:
         naturalsix[24:27] = 2 #G
 
         scalemask = np.zeros(40)
-        for ix in range(self.songlength):
+        for ix in range(self.wpc.pitchcontext.shape[0]):
             p40 = (self.song.mtcsong['features']['pitch40'][ix] - 1) % 40
             scalemask[p40] = True
             naturals[naturalsix[p40]] = False
@@ -495,14 +495,14 @@ class ImpliedHarmony:
         scalemask   = self.getScaleMask(extendToAllNaturalTones=True)
         chords      = self.getChords()
         numpitches  = chords.shape[1]        
-        score       = np.zeros( (self.songlength, numpitches, self.numchords) )
-        traceback   = np.zeros( (self.songlength, numpitches, self.numchords, 2), dtype=int ) #coordinates (pitch, chord) for previous chord
-        trace       = np.zeros( (self.songlength, 2), dtype=int ) # (pitch, chord) for each note
-        trace_score = np.zeros( (self.songlength, 2) ) # (score, score_diff) for each note
+        score       = np.zeros( (self.wpc.pitchcontext.shape[0], numpitches, self.numchords) )
+        traceback   = np.zeros( (self.wpc.pitchcontext.shape[0], numpitches, self.numchords, 2), dtype=int ) #coordinates (pitch, chord) for previous chord
+        trace       = np.zeros( (self.wpc.pitchcontext.shape[0], 2), dtype=int ) # (pitch, chord) for each note
+        trace_score = np.zeros( (self.wpc.pitchcontext.shape[0], 2) ) # (score, score_diff) for each note
 
         #initialization: first note gets its own chords
         score[0] = chords[0]
-        for ix in range(1, self.songlength):
+        for ix in range(1, self.wpc.pitchcontext.shape[0]):
             #find indices of chord1
             chord1_ixs = np.where(chords[ix-1])
             #find indices of chord2
@@ -533,25 +533,25 @@ class ImpliedHarmony:
         max_ixs = np.unravel_index(np.argmax(score[-1]), score[-1].shape)
         trace[-1] = (max_ixs[0], max_ixs[1])
         trace_score[-1] = (score[-1,max_ixs[0], max_ixs[1]], 0)
-        for ix in range(self.songlength-2, -1, -1):
+        for ix in range(self.wpc.pitchcontext.shape[0]-2, -1, -1):
             trace_ixs = traceback[ix+1,trace[ix+1][0],trace[ix+1][1]]
             thisscore = score[ix,trace_ixs[0], trace_ixs[1]]
             trace[ix] = (trace_ixs[0], trace_ixs[1])
             trace_score[ix][0] = thisscore
 
-        for ix in range(1, self.songlength):
+        for ix in range(1, self.wpc.pitchcontext.shape[0]):
             trace_score[ix][1] = trace_score[ix][0] - trace_score[ix-1][0]
 
         return trace, trace_score, score, traceback
 
     def trace2str(self, trace):
-        return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] for ix in range(self.songlength)]
+        return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] for ix in range(self.wpc.pitchcontext.shape[0])]
 
     def getChords(self):
         #prepare data structure:
         numpitches = 120 # 40 pre, 40 post, 40 all
-        chords = np.zeros( (self.songlength, numpitches, self.numchords ) ) # number of notes, 40 pre-pitches+40post-pitches, 4 chords (dim,min,maj,dom)
-        for ix in range(self.songlength):
+        chords = np.zeros( (self.wpc.pitchcontext.shape[0], numpitches, self.numchords ) ) # number of notes, 40 pre-pitches+40post-pitches, 4 chords (dim,min,maj,dom)
+        for ix in range(self.wpc.pitchcontext.shape[0]):
             scores, strengths = self.getChordsForNote(self.wpc.pitchcontext[ix], normalize=True)
             chords[ix] = np.multiply(
                 scores,
