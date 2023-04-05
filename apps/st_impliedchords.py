@@ -12,6 +12,7 @@ from PIL import Image
 import os
 from dataclasses import asdict
 import random
+import ast
 
 import numpy as np
 import seaborn as sns
@@ -25,6 +26,13 @@ from pitchcontext import Song, PitchContext
 from pitchcontext.visualize import unharmonicity2colordict, plotArray
 from pitchcontext.models import computeDissonance, computeConsonance, computeUnharmonicity, ImpliedHarmony
 from pitchcontext.base40 import base40naturalslist, base40
+
+def params2dict(textfield):
+    if len(textfield.strip()) > 0:
+        lines = textfield.split('\n')
+        return { pair[0] : ast.literal_eval(pair[1]) for pair in [line.split('=') for line in lines] }
+    else:
+        return dict()
 
 parser = argparse.ArgumentParser(description='Generate a chord sequence for a given melody.')
 parser.add_argument(
@@ -56,13 +64,72 @@ else:
 
 firstid = krnfile.rstrip(".krn")
 
+def delParams():
+    st.session_state.params_wid = ''
+
+#(widgetname, variablename, default value)
+widgets_defaults = [
+    ('songid_wid',  'songid', firstid),
+    ('same_root_wid', 'same_root_slider', 0.1),
+    ('granularity_threshold_wid', 'granularity_threshold',  0  ),
+    ('allowmajdom_wid', 'allowmajdom_check',  True),
+    ('root_third_final_wid', 'root_third_final_check',  True),
+    ('use_scalemask_wid', 'use_scalemask_check',  True),
+    ('no_fourth_fifth_wid', 'no_fourth_fifth_slider',  0.8),
+    ('final_v_i_wid', 'final_v_i_slider',  0.5),
+    ('dom_fourth_wid', 'dom_fourth_slider',  0.1),
+    ('dim_m2_wid', 'dim_m2_slider',  0.1),
+    ('fourth_dom_wid', 'fourth_dom_slider',  0.8),
+    ('pre_c_wid', 'pre_c_slider', 1.0),
+    ('post_c_wid', 'post_c_slider', 1.0),
+    ('preauto_wid', 'preauto_check', False),
+    ('postauto_wid','postauto_check', False),
+    ('partialnotes_wid', 'partialnotes_check', True),
+    ('removerep_wid', 'removerep_check',  False),
+    ('accweight_wid', 'accweight_check', True),
+    ('include_focus_pre_wid', 'include_focus_pre_check', True),
+    ('include_focus_post_wid', 'include_focus_post_check',  True),
+    ('pre_usemw_wid', 'pre_usemw_check',  True),
+    ('post_usemw_wid', 'post_usemw_check',  True),
+    ('pre_usedw_wid', 'pre_usedw_check',  True),
+    ('post_usedw_wid', 'post_usedw_check',  True),
+    ('mindistw_pre_wid', 'mindistw_pre_slider',  0.0),
+    ('mindistw_post_wid', 'mindistw_post_slider', 0.0),
+]
+
+def delSessionState():
+    for wid in widgets_defaults:
+        del st.session_state[wid[0]]
+
 with st.sidebar:
+
+    params_area = st.text_area(
+        'Parameter setting',
+        key='params_wid'
+    )
+
+    paramdict = params2dict(params_area)
+
+    # Check for provided param setting
+    if 'krnpath' in paramdict.keys():
+        krnpath = paramdict['krnpath']
+    if 'jsonpath' in paramdict.keys():
+        jsonpath = paramdict['jsonpath']
+    for wid in widgets_defaults:
+        if wid[1] in paramdict.keys():
+            st.session_state[wid[0]] = paramdict[wid[1]]
+        else:
+            if wid[0] not in st.session_state:
+                st.session_state[wid[0]] = wid[2]        
+
     songid = st.text_input(
         label="Song ID",
-        value=firstid
+        key='songid_wid',
+        on_change=delParams,
     )
 
     #we need to load the song here, because the song is needed to set pre_c_slider and post_c_slider max
+    #but not necessary if params_area is provided
     krnfilename = os.path.join(krnpath, songid+'.krn')
     jsonfilename = os.path.join(jsonpath, songid+'.json')
     with open(jsonfilename,'r') as f:
@@ -71,39 +138,46 @@ with st.sidebar:
     song = Song(mtcsong, krnfilename)
     songlength_beat = float(sum([Fraction(length) for length in song.mtcsong['features']['beatfraction']]))
 
+
     same_root_slider = st.slider(
         'Multiplier same root, different quality',
         min_value=0.0,
         max_value=1.0,
         step=0.05,
-        value=0.1
+        key='same_root_wid',
+        on_change=delParams
     )
     granularity_threshold = st.radio(    
         "Don't allow change on notes with beatstrength < (0: allow all)",
         (1.0, 0.5, 0.25, 0.125, 0),
-        index=4,
+        key='granularity_threshold_wid',
+        on_change=delParams
     )
 
     allowmajdom_check = st.checkbox(
         "above, but except maj->dom with the same root.",
-        value=True
+        key='allowmajdom_wid',
+        on_change=delParams,
     )
 
     root_third_final_check = st.checkbox(
         "Chord-root or third in melody at final note",
-        value=True
+        key='root_third_final_wid',
+        on_change=delParams,
     )
 
     use_scalemask_check = st.checkbox(
         "Use scale when choosing chords",
-        value=True
+        key='use_scalemask_wid',
+        on_change=delParams,
     )
     no_fourth_fifth_slider = st.slider(
         'Multiplier root movement other than 4th or 5th',
         min_value=0.0,
         max_value=1.0,
         step=0.05,
-        value=0.8
+        key='no_fourth_fifth_wid',
+        on_change=delParams,
     )
 
     final_v_i_slider = st.slider(
@@ -111,7 +185,8 @@ with st.sidebar:
         min_value=0.0,
         max_value=1.0,
         step=0.05,
-        value=0.5
+        key='final_v_i_wid',
+        on_change=delParams,
     )
 
     dom_fourth_slider = st.slider(
@@ -119,7 +194,8 @@ with st.sidebar:
         min_value=0.0,
         max_value=1.0,
         step=0.05,
-        value=0.1
+        key='dom_fourth_wid',
+        on_change=delParams,
     )
 
     dim_m2_slider = st.slider(
@@ -127,7 +203,8 @@ with st.sidebar:
         min_value=0.0,
         max_value=1.0,
         step=0.05,
-        value=0.1
+        key='dim_m2_wid',
+        on_change=delParams,
     )
 
     fourth_dom_slider = st.slider(
@@ -135,7 +212,8 @@ with st.sidebar:
         min_value=0.0,
         max_value=1.0,
         step=0.05,
-        value=0.8
+        key='fourth_dom_wid',
+        on_change=delParams,
     )
 
     pre_c_slider = st.slider(
@@ -143,74 +221,92 @@ with st.sidebar:
         min_value=0.0,
         max_value=songlength_beat,
         step=0.5,
-        value=1.0
+        key='pre_c_wid',
+        on_change=delParams,
     )
     post_c_slider = st.slider(
         'Length of following context (beats)',
         min_value=0.0,
         max_value=songlength_beat,
         step=0.5,
-        value=1.0
+        key='post_c_wid',
+        on_change=delParams,
     )
     preauto_check = st.checkbox(
         "Determine preceding context automatically.",
-        value=False
+        key='preauto_wid',
+        on_change=delParams,
     )
     postauto_check = st.checkbox(
         "Determine following context automatically",
-        value=False
+        key='postauto_wid',
+        on_change=delParams,
     )
     partialnotes_check = st.checkbox(
         "Include partial notes in preceding context.",
-        value=True
+        key='partialnotes_wid',
+        on_change=delParams,
     )
     removerep_check = st.checkbox(
         "Merge repeated notes.",
-        value=False
+        key='removerep_wid',
+        on_change=delParams,
     )
     accweight_check = st.checkbox(
         "Accumulate Weight.",
-        value=True
+        key='accweight_wid',
+        on_change=delParams,
     )
     include_focus_pre_check = st.checkbox(
         "Include Focus note in preceding context:",
-        value=True,
+        key='include_focus_pre_wid',
+        on_change=delParams,
     )
     include_focus_post_check = st.checkbox(
         "Include Focus note in following context:",
-        value=True,
+        key='include_focus_post_wid',
+        on_change=delParams,
     )
     pre_usemw_check = st.checkbox(
         "Use metric weight for preceding context",
-        value=True
+        key='pre_usemw_wid',
+        on_change=delParams,
     )
     post_usemw_check = st.checkbox(
         "Use metric weight for following context",
-        value=True
+        key='post_usemw_wid',
+        on_change=delParams,
     )
     pre_usedw_check = st.checkbox(
         "Use distance weight for preceding context",
-        value=True
+        key='pre_usedw_wid',
+        on_change=delParams,
     )
     post_usedw_check = st.checkbox(
         "Use distance weight for following context",
-        value=True
+        key='post_usedw_wid',
+        on_change=delParams,
     )
     mindistw_pre_slider = st.slider(
         'Minimal distance weight preceding context',
         min_value=0.0,
         max_value=1.0,
         step=0.05,
-        value=0.0
+        key='mindistw_pre_wid',
+        on_change=delParams,
     )
     mindistw_post_slider = st.slider(
         'Minimal distance weight following context',
         min_value=0.0,
         max_value=1.0,
         step=0.05,
-        value=0.0
+        key='mindistw_post_wid',
+        on_change=delParams,
     )
-
+    st.button(
+        label='Restore defaults',
+        on_click=delSessionState
+    )
 
 len_context_pre = 'auto' if preauto_check else pre_c_slider
 len_context_post = 'auto' if postauto_check else post_c_slider
@@ -330,7 +426,8 @@ with col1:
     pngfn_chords = song.createPNG(
         '/tmp',
         showfilename=False,
-        lyrics=strtrace
+        lyrics=strtrace,
+        lyrics_ixs=wpc.ixs
     )
     image = Image.open(pngfn_chords)
     st.image(image, output_format='PNG', use_column_width=True)
