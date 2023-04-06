@@ -326,12 +326,14 @@ class Song:
         #beatinsong_float
         self.mtcsong['features']['beatinsong_float'] = [float(Fraction(b)) for b in self.mtcsong['features']['beatinsong']]
         #isfinalpitch
-        self.mtcsong['features']['startfinalpitch'] = [False] * self.getSongLength()
+        self.mtcsong['features']['isfinalpitch'] = [False] * self.getSongLength()
         finalpitch = self.mtcsong['features']['pitch40'][-1] % 40 #disregard octave
-        for ix in reversed(range(self.getSongLength()-1)):
-            if self.mtcsong['features']['pitch40'][ix] % 40 != finalpitch:
-                self.mtcsong['features']['startfinalpitch'][ix+1] = True
-                break    
+        for ix in reversed(range(self.getSongLength())):
+            if self.mtcsong['features']['pitch40'][ix] % 40 == finalpitch:
+                self.mtcsong['features']['isfinalpitch'][ix] = True
+            else:
+                break
+
 
     def getReducedSong(self, ixs_remove, prolong_previous=False):
         """Create a new Song object without the notes in ixs_removed.
