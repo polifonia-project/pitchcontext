@@ -487,13 +487,17 @@ class ImpliedHarmony:
 
         return scalemask
 
-    def getOptimalChordSequence(self, chordTransitionScoreFunction=None):
+    def getOptimalChordSequence(self, use_scalemask=True, chordTransitionScoreFunction=None):
 
         if chordTransitionScoreFunction == None:
             chordTransitionScoreFunction = self.chordTransitionScore
 
-        scalemask   = self.getScaleMask(extendToAllNaturalTones=True)
-        chords      = self.getChords()
+        if use_scalemask:
+            scalemask = self.getScaleMask(extendToAllNaturalTones=True)
+        else:
+            scalemask = np.ones(40, dtype=bool)
+        
+        chords      = self.getChords(use_scalemask=use_scalemask)
         numpitches  = chords.shape[1]        
         score       = np.zeros( (self.wpc.pitchcontext.shape[0], numpitches, self.numchords) )
         traceback   = np.zeros( (self.wpc.pitchcontext.shape[0], numpitches, self.numchords, 2), dtype=int ) #coordinates (pitch, chord) for previous chord
@@ -547,26 +551,26 @@ class ImpliedHarmony:
     def trace2str(self, trace):
         return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] for ix in range(self.wpc.pitchcontext.shape[0])]
 
-    def getChords(self):
+    def getChords(self, use_scalemask=True):
         #prepare data structure:
         numpitches = 120 # 40 pre, 40 post, 40 all
         chords = np.zeros( (self.wpc.pitchcontext.shape[0], numpitches, self.numchords ) ) # number of notes, 40 pre-pitches+40post-pitches, 4 chords (dim,min,maj,dom)
         for ix in range(self.wpc.pitchcontext.shape[0]):
-            scores, strengths = self.getChordsForNote(self.wpc.pitchcontext[ix], normalize=True)
+            scores, strengths = self.getChordsForNote(self.wpc.pitchcontext[ix], normalize=True, use_scalemask=use_scalemask)
             chords[ix] = np.multiply(
                 scores,
                 strengths
             )
         return chords
 
-    def getChordsForNote(self, pitchcontextvector, normalize=True, useScalemask=True):
+    def getChordsForNote(self, pitchcontextvector, normalize=True, use_scalemask=True):
         #find out whether pitches could be arranged as series of thirds
         
         epsilon = 10e-4
         chordmask_minseventh = np.zeros(40)
         np.put(chordmask_minseventh, [34], 1.0) #used for check presence seventh in dom chord
 
-        if useScalemask:
+        if use_scalemask:
             scalemask = self.getScaleMask(extendToAllNaturalTones=True)
         else:
             scalemask = np.ones(40, dtype=bool)
@@ -669,7 +673,7 @@ class ImpliedHarmony:
     
     #chords: output of getChords
     #transition from ix1 to ix2
-    def printAllTransitions(self, chords, ix1, ix2, scores=None, chordTransitionScoreFunction=None, scalemask=np.ones(40, dtype=bool)):
+    def printAllTransitions(self, chords, ix1, ix2, scores=None, chordTransitionScoreFunction=None, use_scalemask=True):
         if chordTransitionScoreFunction == None:
             chordTransitionScoreFunction = self.chordTransitionScore
         if scores is None:
@@ -679,7 +683,12 @@ class ImpliedHarmony:
         chord1_ixs = np.where(chords[ix1])
         #find indices of chord2
         chord2_ixs = np.where(chords[ix2])
-    
+
+        if use_scalemask:
+            scalemask = self.getScaleMask(extendToAllNaturalTones=True)
+        else:
+            scalemask = np.ones(40, dtype=bool)
+
         transitions = []
         for ixs2 in zip(chord2_ixs[0], chord2_ixs[1]):
             for ixs1 in zip(chord1_ixs[0], chord1_ixs[1]):
