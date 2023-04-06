@@ -303,6 +303,7 @@ class Song:
         - maxbeatstrength: the highest beatstrenght DURING the note.
         - offsets: offset tick of the note (first tick AFTER the note)
         - beatinsong_float: float representation of beatinsong
+        - is final pitch: bool. True if the pitch does not change anymore (final pitch might be repeated)
         """
         self.mtcsong['features']['syncope'] = [False] * len(self.mtcsong['features']['pitch'])
         self.mtcsong['features']['maxbeatstrength'] = [0.0] * len(self.mtcsong['features']['pitch'])
@@ -324,6 +325,13 @@ class Song:
         #self.mtcsong['features']['maxbeatstrength'][-1] = self.mtcsong['features']['beatstrength'][-1]
         #beatinsong_float
         self.mtcsong['features']['beatinsong_float'] = [float(Fraction(b)) for b in self.mtcsong['features']['beatinsong']]
+        #isfinalpitch
+        self.mtcsong['features']['startfinalpitch'] = [False] * self.getSongLength()
+        finalpitch = self.mtcsong['features']['pitch40'][-1] % 40 #disregard octave
+        for ix in reversed(range(self.getSongLength()-1)):
+            if self.mtcsong['features']['pitch40'][ix] % 40 != finalpitch:
+                self.mtcsong['features']['startfinalpitch'][ix+1] = True
+                break    
 
     def getReducedSong(self, ixs_remove, prolong_previous=False):
         """Create a new Song object without the notes in ixs_removed.
