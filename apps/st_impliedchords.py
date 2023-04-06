@@ -27,6 +27,8 @@ from pitchcontext.visualize import unharmonicity2colordict, plotArray
 from pitchcontext.models import computeDissonance, computeConsonance, computeUnharmonicity, ImpliedHarmony
 from pitchcontext.base40 import base40naturalslist, base40
 
+epsilon = 10e-4
+
 def params2dict(textfield):
     if len(textfield.strip()) > 0:
         lines = textfield.split('\n')
@@ -71,6 +73,7 @@ def delParams():
 widgets_defaults = [
     ('songid_wid',  'songid', firstid),
     ('same_root_wid', 'same_root_slider', 0.1),
+    ('diff_root_wid', 'diff_root_slider', 0.8),
     ('granularity_threshold_wid', 'granularity_threshold',  0  ),
     ('allowmajdom_wid', 'allowmajdom_check',  True),
     ('root_third_final_wid', 'root_third_final_check',  True),
@@ -84,6 +87,7 @@ widgets_defaults = [
     ('post_c_wid', 'post_c_slider', 1.0),
     ('preauto_wid', 'preauto_check', False),
     ('postauto_wid','postauto_check', False),
+    ('context_boundary_threshold_wid', 'context_boundary_threshold_radio', 0.5),
     ('partialnotes_wid', 'partialnotes_check', True),
     ('removerep_wid', 'removerep_check',  False),
     ('accweight_wid', 'accweight_check', True),
@@ -138,6 +142,27 @@ with st.sidebar:
     song = Song(mtcsong, krnfilename)
     songlength_beat = float(sum([Fraction(length) for length in song.mtcsong['features']['beatfraction']]))
 
+    granularity_threshold = st.radio(    
+        "Don't allow change on notes with beatstrength < (0: allow all)",
+        (1.0, 0.5, 0.25, 0.125, 0),
+        key='granularity_threshold_wid',
+        on_change=delParams
+    )
+
+    use_scalemask_check = st.checkbox(
+        "Use scale when choosing chords",
+        key='use_scalemask_wid',
+        on_change=delParams,
+    )
+
+    diff_root_slider = st.slider(
+        'Multiplier different root',
+        min_value=0.0,
+        max_value=1.0,
+        step=0.05,
+        key='diff_root_wid',
+        on_change=delParams
+    )
 
     same_root_slider = st.slider(
         'Multiplier same root, different quality',
@@ -147,12 +172,6 @@ with st.sidebar:
         key='same_root_wid',
         on_change=delParams
     )
-    granularity_threshold = st.radio(    
-        "Don't allow change on notes with beatstrength < (0: allow all)",
-        (1.0, 0.5, 0.25, 0.125, 0),
-        key='granularity_threshold_wid',
-        on_change=delParams
-    )
 
     allowmajdom_check = st.checkbox(
         "above, but except maj->dom with the same root.",
@@ -160,32 +179,12 @@ with st.sidebar:
         on_change=delParams,
     )
 
-    root_third_final_check = st.checkbox(
-        "Chord-root or third in melody at final note",
-        key='root_third_final_wid',
-        on_change=delParams,
-    )
-
-    use_scalemask_check = st.checkbox(
-        "Use scale when choosing chords",
-        key='use_scalemask_wid',
-        on_change=delParams,
-    )
     no_fourth_fifth_slider = st.slider(
         'Multiplier root movement other than 4th or 5th',
         min_value=0.0,
         max_value=1.0,
         step=0.05,
         key='no_fourth_fifth_wid',
-        on_change=delParams,
-    )
-
-    final_v_i_slider = st.slider(
-        'Multiplier NO V-I final',
-        min_value=0.0,
-        max_value=1.0,
-        step=0.05,
-        key='final_v_i_wid',
         on_change=delParams,
     )
 
@@ -216,6 +215,21 @@ with st.sidebar:
         on_change=delParams,
     )
 
+    root_third_final_check = st.checkbox(
+        "Chord-root or third in melody at final note",
+        key='root_third_final_wid',
+        on_change=delParams,
+    )
+
+    final_v_i_slider = st.slider(
+        'Multiplier NO fifth up on final pitch',
+        min_value=0.0,
+        max_value=1.0,
+        step=0.05,
+        key='final_v_i_wid',
+        on_change=delParams,
+    )
+
     pre_c_slider = st.slider(
         'Length of preceding context (beats)',
         min_value=0.0,
@@ -241,6 +255,12 @@ with st.sidebar:
         "Determine following context automatically",
         key='postauto_wid',
         on_change=delParams,
+    )
+    context_boundary_threshold_radio = st.radio(    
+        "Boundary for automatic context:",
+        (1.0, 0.5),
+        key='context_boundary_threshold_wid',
+        on_change=delParams
     )
     partialnotes_check = st.checkbox(
         "Include partial notes in preceding context.",
@@ -324,6 +344,7 @@ wpc = PitchContext(
     context_type='beats',
     len_context_pre=len_context_pre,
     len_context_post=len_context_post,
+    len_context_params={'threshold':context_boundary_threshold_radio, 'not_heigher_than_focus':context_boundary_threshold_radio},
     use_metric_weights_pre=pre_usemw_check,
     use_metric_weights_post=post_usemw_check,
     include_focus_pre=include_focus_pre_check,
@@ -334,6 +355,7 @@ wpc = PitchContext(
     min_distance_weight_post=mindistw_post_slider,
 )
 
+#NB chord1_ixs and chord2_ixs are indices in wpc.ixs (might differ from full song)
 def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40, dtype=bool), song=None, wpc=None):
 
     #scoring scheme.
@@ -343,14 +365,17 @@ def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40,
     shift = (pitch2 - pitch1) % 40 #interval of roots in base40
 
     #no score if root of chord tones is not in the scalemask)
-    if use_scalemask_check:
-        if not scalemask[pitch1] or not scalemask[pitch2]:
-            return 0.0
+    if not scalemask[pitch1] or not scalemask[pitch2]:
+        return 0.0
 
     #else compute score step by step
 
     # 1. start with score for 'next' chord
     score = chords[chord2_ixs]
+
+    # prefer continuation of the chord
+    if pitch1 != pitch2:
+        score = score * diff_root_slider
 
     # Discourage same root, different quality #except maj -> dom
     if pitch1 == pitch2:
@@ -360,13 +385,13 @@ def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40,
 
     # discourage root, and/or quality change on note with low metric weight (except maj->dom on same root)
     if granularity_threshold > 0:
-        if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] < granularity_threshold:
+        if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] < granularity_threshold-epsilon:
             if allowmajdom_check:
                 if (pitch1 != pitch2) or ( (pitch1 == pitch2) and ((chord1_ixs[2] != chord2_ixs[2]) and not (chord1_ixs[2] == 2 and chord2_ixs[2] == 3)) ):
-                    score = -100
+                    return -10.
             else:
                 if pitch1 != pitch2:
-                    score = -100
+                    return -10.
 
     # penalty for harmonically distant
     # HOW TO DO THIS?
@@ -376,10 +401,23 @@ def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40,
     if shift != 17 and shift != 23 and shift !=0:
         score = score * no_fourth_fifth_slider
 
-    # prefer V-I relation for final note
-    if chord2_ixs[0] == songlength - 1:
-        if shift != 17:
-            score = score * final_v_i_slider
+    # prefer fifth up relation for final note
+    # Actually, apply this to the last pitch CHANGE (final tone might be repeated)
+    # Actually, not always. e.g. e8 e8 | e2. and beatstrengththreshold=1... 
+    # So only if chord change is ALLOWED
+    # But then previous pitch might also be the tonic. If anticipation, this is fine, otherwise not.
+    if song.mtcsong['features']['isfinalpitch'][chord2_ixs[0]]: #final pitch
+        if granularity_threshold-epsilon > 0:
+            #check whether change is allowed
+            #check whether change should have been on previous note
+            if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] >= granularity_threshold-epsilon: #allowed
+                if song.mtcsong['features']['highestweight'][chord2_ixs[0]] < granularity_threshold-epsilon: #no previous candidate
+                    if shift != 17:
+                        score = score * final_v_i_slider
+        else: #only on start of final pitches
+            if song.mtcsong['features']['startfinalpitch'][chord2_ixs[0]]:
+                if shift != 17:
+                    score = score * final_v_i_slider
 
     # If previous is dom. Then root must be fourth up
     if chord1_ixs[2] == 3:
@@ -402,12 +440,12 @@ def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40,
             melp40 = song.mtcsong['features']['pitch40'][songlength-1] - 1
             root_int = (melp40 - pitch2) % 40
             if not root_int in [0, 11, 12]:
-                score = -100
+                return -10.
     return score
 
 ih = ImpliedHarmony(wpc)
 
-trace, trace_score, score, traceback = ih.getOptimalChordSequence(chordTransitionScoreFunction=myChordTransitionScore)
+trace, trace_score, score, traceback = ih.getOptimalChordSequence(chordTransitionScoreFunction=myChordTransitionScore, use_scalemask=use_scalemask_check)
 strtrace = ih.trace2str(trace)
 
 #replace same chord
@@ -444,8 +482,9 @@ with col1:
     st.text(f"{songid=}")
     st.text(f"{krnpath=}")
     st.text(f"{jsonpath=}")
-    st.text(f"{same_root_slider=}")
     st.text(f"{granularity_threshold=}")
+    st.text(f"{diff_root_slider=}")
+    st.text(f"{same_root_slider=}")
     st.text(f"{allowmajdom_check=}")
     st.text(f"{root_third_final_check=}")
     st.text(f"{use_scalemask_check=}")
@@ -458,6 +497,7 @@ with col1:
     st.text(f"{post_c_slider=}")
     st.text(f"{preauto_check=}")
     st.text(f"{postauto_check=}")
+    st.text(f"{context_boundary_threshold_radio=}")
     st.text(f"{partialnotes_check=}")
     st.text(f"{removerep_check=}")
     st.text(f"{accweight_check=}")
@@ -473,7 +513,14 @@ with col1:
 #st.write(asdict(wpc.params))
 
 with col2:
+    #reconstruct initial score:
+    chords = ih.getChords()
+    initialscore = []
+    for ix in wpc.ixs:
+        initialscore.append(chords[ix,trace[ix][0],trace[ix][1]])
+
     report = wpc.printReport(
+        initialscore = initialscore,
         chordscore = [tr[1] for tr in trace_score]
     )
     components.html(f"<pre>{report}</pre>", height=650, scrolling=True)
