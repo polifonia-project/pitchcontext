@@ -333,6 +333,24 @@ class Song:
                 self.mtcsong['features']['isfinalpitch'][ix] = True
             else:
                 break
+        #startfinalpitch
+        self.mtcsong['features']['startfinalpitch'] = [False] * self.getSongLength()
+        for ix in reversed(range(self.getSongLength()-1)):
+            if self.mtcsong['features']['pitch40'][ix] % 40 != finalpitch:
+                self.mtcsong['features']['startfinalpitch'][ix+1] = True
+                break
+        #highestweight: highest weight seen in preceeding notes during the sequence of FINAL pitch only
+        self.mtcsong['features']['highestweight'] = [0.0] * self.getSongLength()
+        for ix in range(self.getSongLength()):
+            if not self.mtcsong['features']['isfinalpitch'][ix]:
+                continue
+            if self.mtcsong['features']['startfinalpitch'][ix]:
+                continue
+            #now we are sure that we are 'in' the final tone
+            if self.mtcsong['features']['beatstrength'][ix-1] > self.mtcsong['features']['highestweight'][ix-1]:
+                self.mtcsong['features']['highestweight'][ix] = self.mtcsong['features']['beatstrength'][ix-1]
+            else:
+                self.mtcsong['features']['highestweight'][ix] = self.mtcsong['features']['highestweight'][ix-1]
 
 
     def getReducedSong(self, ixs_remove, prolong_previous=False):
