@@ -30,7 +30,7 @@ from pitchcontext.base40 import base40naturalslist, base40
 def params2dict(textfield):
     if len(textfield.strip()) > 0:
         lines = textfield.split('\n')
-        return { pair[0] : ast.literal_eval(pair[1]) for pair in [line.split('=') for line in lines] }
+        return { pair[0] : ast.literal_eval(pair[1]) for pair in [line.split('=') for line in lines if '=' in line] }
     else:
         return dict()
 
