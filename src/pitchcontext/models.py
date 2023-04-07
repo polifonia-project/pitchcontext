@@ -437,14 +437,16 @@ class ImpliedHarmony:
             prev_ixs = np.where(diff_prev <= diff_next)[0]
             #from prev context
             for scale_ix in prev_ixs:
-                p40 = self.getP40( self.wpc.ixs[ mostrecent[ix][scale_ix] ] )
-                scalemask[ix, p40] = True
-                naturals[naturalsix[p40]] = False
+                if mostrecent[ix][scale_ix] != 1000:
+                    p40 = self.getP40( self.wpc.ixs[ mostrecent[ix][scale_ix] ] )
+                    scalemask[ix, p40] = True
+                    naturals[naturalsix[p40]] = False
             #take from next context
             for scale_ix in next_ixs:
-                p40 = self.getP40( self.wpc.ixs[ mostnext[ix][scale_ix] ] )
-                scalemask[ix, p40] = True
-                naturals[naturalsix[p40]] = False
+                if mostnext[ix][scale_ix] != -1000:
+                    p40 = self.getP40( self.wpc.ixs[ mostnext[ix][scale_ix] ] )
+                    scalemask[ix, p40] = True
+                    naturals[naturalsix[p40]] = False
 
         # scalemask = np.zeros(40)
         # for ix in range(self.wpc.pitchcontext.shape[0]):
@@ -457,7 +459,7 @@ class ImpliedHarmony:
 
         if extendToAllNaturalTones:
 
-            for ix in range(seq_length):
+            for seq_ix in range(seq_length):
 
                 #add missing tones
                 #flats
@@ -476,28 +478,28 @@ class ImpliedHarmony:
 
                     if ix == 0:
                         #When Fb? Only if Cb is present
-                        if scalemask[ix,fifthupflat]:
-                            scalemask[ix,missingflat] = True
+                        if scalemask[seq_ix,fifthupflat]:
+                            scalemask[seq_ix,missingflat] = True
                         #when F? If no C#
-                        if not scalemask[ix,fifthupsharp]:
-                            scalemask[ix,missing] = True
+                        if not scalemask[seq_ix,fifthupsharp]:
+                            scalemask[seq_ix,missing] = True
                         continue
                     
                     if ix == 6: #Bb ?
                         #When Bb? If Eb is present or if F is present
-                        if scalemask[ix,fifthdownflat] or scalemask[ix,fifthup]:
-                            scalemask[ix,missingflat] = True
+                        if scalemask[seq_ix,fifthdownflat] or scalemask[seq_ix,fifthup]:
+                            scalemask[seq_ix,missingflat] = True
                         #when B? always - We deal with B# below
-                        scalemask[ix,missing] = True
+                        scalemask[seq_ix,missing] = True
                         continue
 
-                    if scalemask[ix,fifthdownflat]:
-                        scalemask[ix,missingflat] = True
-                    elif scalemask[ix,fifthdown] and scalemask[ix,fifthup]:
-                        scalemask[ix,missing] = True
-                    elif scalemask[ix,fifthdown] and scalemask[ix,fifthupflat]:
-                        scalemask[ix,missingflat] = True
-                        scalemask[ix,missing] = True
+                    if scalemask[seq_ix,fifthdownflat]:
+                        scalemask[seq_ix,missingflat] = True
+                    elif scalemask[seq_ix,fifthdown] and scalemask[seq_ix,fifthup]:
+                        scalemask[seq_ix,missing] = True
+                    elif scalemask[seq_ix,fifthdown] and scalemask[seq_ix,fifthupflat]:
+                        scalemask[seq_ix,missingflat] = True
+                        scalemask[seq_ix,missing] = True
 
                 #sharps
                 for ix in sorted(list(np.where(naturals)[0]), reverse=True): #from B->F order is important, more than one tone might be missing. first fix tones far away from C
@@ -514,29 +516,29 @@ class ImpliedHarmony:
 
                     if ix == 6: # B#?
                         #when B#? If E# present
-                        if scalemask[ix,fifthdownsharp]:
-                            scalemask[ix,missingsharp] = True
+                        if scalemask[seq_ix,fifthdownsharp]:
+                            scalemask[seq_ix,missingsharp] = True
                         #when B? when No flats (i.e. no Eb)
-                        if not scalemask[ix,fifthdownflat]:
-                            scalemask[ix,missing] = True
+                        if not scalemask[seq_ix,fifthdownflat]:
+                            scalemask[seq_ix,missing] = True
                         continue
 
                     if ix == 0: # F#?
                         #when F#? If C# present or if B present
-                        if scalemask[ix,fifthupsharp] or scalemask[ix,fifthdown]:
-                            scalemask[ix,missingsharp] = True
+                        if scalemask[seq_ix,fifthupsharp] or scalemask[seq_ix,fifthdown]:
+                            scalemask[seq_ix,missingsharp] = True
                         #when F? If Bb not present (deal with Bb above)
-                        if not scalemask[ix,fifthdownflat]:
-                            scalemask[ix,missing] = True
+                        if not scalemask[seq_ix,fifthdownflat]:
+                            scalemask[seq_ix,missing] = True
                         continue
 
-                    if scalemask[ix,fifthupsharp]:
-                        scalemask[ix,missingsharp] = True
-                    elif scalemask[ix,fifthup] and scalemask[ix,fifthdown]:
-                        scalemask[ix,missing] = True
-                    elif scalemask[ix,fifthdownsharp] and scalemask[ix,fifthup]:
-                        scalemask[ix,missingsharp] = True
-                        scalemask[ix,missing] = True
+                    if scalemask[seq_ix,fifthupsharp]:
+                        scalemask[seq_ix,missingsharp] = True
+                    elif scalemask[seq_ix,fifthup] and scalemask[seq_ix,fifthdown]:
+                        scalemask[seq_ix,missing] = True
+                    elif scalemask[seq_ix,fifthdownsharp] and scalemask[seq_ix,fifthup]:
+                        scalemask[seq_ix,missingsharp] = True
+                        scalemask[seq_ix,missing] = True
 
         return scalemask
 
