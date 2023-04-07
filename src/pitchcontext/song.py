@@ -576,6 +576,22 @@ class Song:
                     f.write(f'\\header {{ opus = "{filename}" }}\n\n')
                 f.write(l)
 
+    def insertSystemSpacingLy(self, filename):
+        """Insert a paper block with system-system spacing into lilypond source file.
+
+        Parameters
+        ----------
+        filename : str
+            Filename of the lilypond file to process.
+        """
+        with open(filename,'r') as f:
+            lines = [l for l in f.readlines()]
+        with open(filename,'w') as f:
+            for l in lines:
+                f.write(l)
+                if "\\version" in l:
+                    f.write( "\paper { system-system-spacing.basic-distance = #16 }\n" )
+
     def createColoredPDF(self, colordict, outputpath, filebasename=None, showfilename=True, lyrics=None, lyrics_ixs=None):
         """Create a pdf with a score with colored notes.
 
@@ -604,6 +620,7 @@ class Song:
         self.formatAndRepairLy(os.path.join(outputpath, filebasename+'.ly'))
         if showfilename:
             self.insertFilenameLy(os.path.join(outputpath, filebasename+'.ly'))
+        self.insertSystemSpacingLy(os.path.join(outputpath, filebasename+'.ly'))
         output = subprocess.run(["lilypond", os.path.join(outputpath, filebasename+'.ly')], cwd=outputpath, capture_output=True)
         return os.path.join(outputpath, filebasename+'.pdf')
 
