@@ -384,11 +384,15 @@ class ImpliedHarmony:
 
         return score
 
+    #ix = ix in full song
+    def getP40(self, ix):
+        return (self.song.mtcsong['features']['pitch40'][ix] - 1) % 40
+
     # if extendToAllNaturalTones, also include tones that are 'missing'. E.g. NLB070513_01 in G, but no F#
     # include all alterations. So, no F in melody, include Fb, F, and F#
     def getScaleMask(self, extendToAllNaturalTones=False):
 
-        naturals = np.ones(7, dtype=bool) #[F C G D A E B]
+        naturals = np.ones(7, dtype=bool) #[F C G D A E B] # True if not seen
         naturalixs = np.array([19, 2, 25, 8, 31, 14, 37])
         naturalsix = np.zeros(40, dtype=int)
         naturalsix[30:33] = 4 #A
@@ -399,91 +403,140 @@ class ImpliedHarmony:
         naturalsix[18:21] = 0 #F
         naturalsix[24:27] = 2 #G
 
-        scalemask = np.zeros(40)
-        for ix in range(self.wpc.pitchcontext.shape[0]):
-            p40 = (self.song.mtcsong['features']['pitch40'][ix] - 1) % 40
-            scalemask[p40] = True
-            naturals[naturalsix[p40]] = False
+        seq_length = len(self.wpc.ixs)
+
+        #make scalemask for each note. includes the alteration of the stemtone that is CLOSEST to the focus note
+
+        #first record at which index the closest same stemtone is in the melody
+        mostrecent = np.zeros((seq_length, 7), dtype=int) + 1000 #gives the index of the most recent stemtone (1000 if not yet)
+        mostnext = np.zeros((seq_length, 7), dtype=int) - 1000 #gives the index of the closes next occurrence of the scale tone (-1000 if not any more)
+        #first pitch for mostrecent
+        p40 = self.getP40(self.wpc.ixs[0])
+        mostrecent[0][naturalsix[p40]] = 0
+        #rest
+        for ix in range(1, seq_length):
+            mostrecent[ix] = mostrecent[ix-1]
+            p40 = self.getP40(self.wpc.ixs[ix])
+            mostrecent[ix][naturalsix[p40]] = ix
+        #last pitch for mostnext
+        p40 = p40 = self.getP40(self.wpc.ixs[-1])
+        mostnext[-1][naturalsix[p40]] = seq_length - 1
+        #rest
+        for ix in reversed(range(seq_length-1)):
+            mostnext[ix] = mostnext[ix+1]
+            p40 = p40 = self.getP40(self.wpc.ixs[ix])
+            mostnext[ix][naturalsix[p40]] = ix
+
+        #now create the scales for each of the notes
+        scalemask = np.zeros((seq_length, 40))
+
+        for ix in range(seq_length):
+            diff_prev = np.abs(ix - mostrecent[ix])
+            diff_next = np.abs(mostnext[ix] - ix)
+            next_ixs = np.where(diff_prev > diff_next)[0]
+            prev_ixs = np.where(diff_prev <= diff_next)[0]
+            #from prev context
+            for scale_ix in prev_ixs:
+                p40 = self.getP40( self.wpc.ixs[ mostrecent[ix][scale_ix] ] )
+                scalemask[ix, p40] = True
+                naturals[naturalsix[p40]] = False
+            #take from next context
+            for scale_ix in next_ixs:
+                p40 = self.getP40( self.wpc.ixs[ mostnext[ix][scale_ix] ] )
+                scalemask[ix, p40] = True
+                naturals[naturalsix[p40]] = False
+
+        # scalemask = np.zeros(40)
+        # for ix in range(self.wpc.pitchcontext.shape[0]):
+        #     p40 = (self.song.mtcsong['features']['pitch40'][ix] - 1) % 40
+        #     scalemask[p40] = True
+        #     naturals[naturalsix[p40]] = False
+
+        # now extend each 
+        # missing stem tones should be missing in all scalemasks, but addition might differ
 
         if extendToAllNaturalTones:
-            #add missing tones
-            #flats
-            for ix in sorted(list(np.where(naturals)[0])): #from F->B order is important, more than one tone might be missing. first fix tones far away from C
-                #figure out whether to add flat
 
-                missing       = naturalixs[ix]
-                missingflat   = missing - 1 
-                fifthdown     = naturalixs[(ix - 1) % 7]
-                fifthdownflat = fifthdown - 1
-                fifthup       = naturalixs[(ix + 1) % 7]
-                fifthupflat   = fifthup - 1
-                fifthupsharp  = fifthup + 1
+            for ix in range(seq_length):
 
-                #### SOLVE MINOR, leading tone (if not in melody)
+                #add missing tones
+                #flats
+                for ix in sorted(list(np.where(naturals)[0])): #from F->B order is important, more than one tone might be missing. first fix tones far away from C
+                    #figure out whether to add flat
 
-                if ix == 0:
-                    #When Fb? Only if Cb is present
-                    if scalemask[fifthupflat]:
-                        scalemask[missingflat] = True
-                    #when F? If no C#
-                    if not scalemask[fifthupsharp]:
-                        scalemask[missing] = True
-                    continue
-                
-                if ix == 6: #Bb ?
-                    #When Bb? If Eb is present or if F is present
-                    if scalemask[fifthdownflat] or scalemask[fifthup]:
-                        scalemask[missingflat] = True
-                    #when B? always - We deal with B# below
-                    scalemask[missing] = True
-                    continue
+                    missing       = naturalixs[ix]
+                    missingflat   = missing - 1 
+                    fifthdown     = naturalixs[(ix - 1) % 7]
+                    fifthdownflat = fifthdown - 1
+                    fifthup       = naturalixs[(ix + 1) % 7]
+                    fifthupflat   = fifthup - 1
+                    fifthupsharp  = fifthup + 1
 
-                if scalemask[fifthdownflat]:
-                    scalemask[missingflat] = True
-                elif scalemask[fifthdown] and scalemask[fifthup]:
-                    scalemask[missing] = True
-                elif scalemask[fifthdown] and scalemask[fifthupflat]:
-                    scalemask[missingflat] = True
-                    scalemask[missing] = True
+                    #### SOLVE MINOR, leading tone (if not in melody)
 
-            #sharps
-            for ix in sorted(list(np.where(naturals)[0]), reverse=True): #from B->F order is important, more than one tone might be missing. first fix tones far away from C
-                
-                #figure out whether to add flat
+                    if ix == 0:
+                        #When Fb? Only if Cb is present
+                        if scalemask[ix,fifthupflat]:
+                            scalemask[ix,missingflat] = True
+                        #when F? If no C#
+                        if not scalemask[ix,fifthupsharp]:
+                            scalemask[ix,missing] = True
+                        continue
+                    
+                    if ix == 6: #Bb ?
+                        #When Bb? If Eb is present or if F is present
+                        if scalemask[ix,fifthdownflat] or scalemask[ix,fifthup]:
+                            scalemask[ix,missingflat] = True
+                        #when B? always - We deal with B# below
+                        scalemask[ix,missing] = True
+                        continue
 
-                missing        = naturalixs[ix]
-                missingsharp   = missing + 1 
-                fifthdown      = naturalixs[(ix - 1) % 7]
-                fifthdownsharp = fifthdown + 1
-                fifthup        = naturalixs[(ix + 1) % 7]
-                fifthupsharp   = fifthup + 1
-                fifthupflat    = fifthup - 1
+                    if scalemask[ix,fifthdownflat]:
+                        scalemask[ix,missingflat] = True
+                    elif scalemask[ix,fifthdown] and scalemask[ix,fifthup]:
+                        scalemask[ix,missing] = True
+                    elif scalemask[ix,fifthdown] and scalemask[ix,fifthupflat]:
+                        scalemask[ix,missingflat] = True
+                        scalemask[ix,missing] = True
 
-                if ix == 6: # B#?
-                    #when B#? If E# present
-                    if scalemask[fifthdownsharp]:
-                        scalemask[missingsharp] = True
-                    #when B? when No flats (i.e. no Eb)
-                    if not scalemask[fifthdownflat]:
-                        scalemask[missing] = True
-                    continue
+                #sharps
+                for ix in sorted(list(np.where(naturals)[0]), reverse=True): #from B->F order is important, more than one tone might be missing. first fix tones far away from C
+                    
+                    #figure out whether to add flat
 
-                if ix == 0: # F#?
-                    #when F#? If C# present or if B present
-                    if scalemask[fifthupsharp] or scalemask[fifthdown]:
-                        scalemask[missingsharp] = True
-                    #when F? If Bb not present (deal with Bb above)
-                    if not scalemask[fifthdownflat]:
-                        scalemask[missing] = True
-                    continue
+                    missing        = naturalixs[ix]
+                    missingsharp   = missing + 1 
+                    fifthdown      = naturalixs[(ix - 1) % 7]
+                    fifthdownsharp = fifthdown + 1
+                    fifthup        = naturalixs[(ix + 1) % 7]
+                    fifthupsharp   = fifthup + 1
+                    fifthupflat    = fifthup - 1
 
-                if scalemask[fifthupsharp]:
-                    scalemask[missingsharp] = True
-                elif scalemask[fifthup] and scalemask[fifthdown]:
-                    scalemask[missing] = True
-                elif scalemask[fifthdownsharp] and scalemask[fifthup]:
-                    scalemask[missingsharp] = True
-                    scalemask[missing] = True
+                    if ix == 6: # B#?
+                        #when B#? If E# present
+                        if scalemask[ix,fifthdownsharp]:
+                            scalemask[ix,missingsharp] = True
+                        #when B? when No flats (i.e. no Eb)
+                        if not scalemask[ix,fifthdownflat]:
+                            scalemask[ix,missing] = True
+                        continue
+
+                    if ix == 0: # F#?
+                        #when F#? If C# present or if B present
+                        if scalemask[ix,fifthupsharp] or scalemask[ix,fifthdown]:
+                            scalemask[ix,missingsharp] = True
+                        #when F? If Bb not present (deal with Bb above)
+                        if not scalemask[ix,fifthdownflat]:
+                            scalemask[ix,missing] = True
+                        continue
+
+                    if scalemask[ix,fifthupsharp]:
+                        scalemask[ix,missingsharp] = True
+                    elif scalemask[ix,fifthup] and scalemask[ix,fifthdown]:
+                        scalemask[ix,missing] = True
+                    elif scalemask[ix,fifthdownsharp] and scalemask[ix,fifthup]:
+                        scalemask[ix,missingsharp] = True
+                        scalemask[ix,missing] = True
 
         return scalemask
 
@@ -495,7 +548,7 @@ class ImpliedHarmony:
         if use_scalemask:
             scalemask = self.getScaleMask(extendToAllNaturalTones=True)
         else:
-            scalemask = np.ones(40, dtype=bool)
+            scalemask = np.ones((len(self.wpc.ixs), 40), dtype=bool)
         
         chords      = self.getChords(use_scalemask=use_scalemask)
         numpitches  = chords.shape[1]        
@@ -519,7 +572,7 @@ class ImpliedHarmony:
                         chords,
                         (ix-1,ixs1[0],ixs1[1]),
                         (ix, ixs2[0], ixs2[1]),
-                        scalemask=scalemask,
+                        scalemask=scalemask[ix],
                         song=self.song,
                         wpc=self.wpc
                     )
@@ -552,28 +605,30 @@ class ImpliedHarmony:
         return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] for ix in range(self.wpc.pitchcontext.shape[0])]
 
     def getChords(self, use_scalemask=True):
+        seq_length = len(self.wpc.ixs)
         #prepare data structure:
+        if use_scalemask:
+            scalemask = self.getScaleMask(extendToAllNaturalTones=True)
+        else:
+            scalemask = np.ones((seq_length, 40), dtype=bool)
         numpitches = 120 # 40 pre, 40 post, 40 all
         chords = np.zeros( (self.wpc.pitchcontext.shape[0], numpitches, self.numchords ) ) # number of notes, 40 pre-pitches+40post-pitches, 4 chords (dim,min,maj,dom)
         for ix in range(self.wpc.pitchcontext.shape[0]):
-            scores, strengths = self.getChordsForNote(self.wpc.pitchcontext[ix], normalize=True, use_scalemask=use_scalemask)
+            scores, strengths = self.getChordsForNote(self.wpc.pitchcontext[ix], normalize=True, scalemask=scalemask[ix])
             chords[ix] = np.multiply(
                 scores,
                 strengths
             )
         return chords
 
-    def getChordsForNote(self, pitchcontextvector, normalize=True, use_scalemask=True):
+    def getChordsForNote(self, pitchcontextvector, normalize=True, scalemask=np.ones(40, dtype=bool)):
         #find out whether pitches could be arranged as series of thirds
         
         epsilon = 10e-4
         chordmask_minseventh = np.zeros(40)
         np.put(chordmask_minseventh, [34], 1.0) #used for check presence seventh in dom chord
 
-        if use_scalemask:
-            scalemask = self.getScaleMask(extendToAllNaturalTones=True)
-        else:
-            scalemask = np.ones(40, dtype=bool)
+
 
         #only take natural tones, and one b or one # as root
         valid_shifts = [1, 2, 3, 7, 8, 9, 13, 14, 15, 18, 19, 20, 24, 25, 26, 30, 31, 32, 36, 37, 38]
@@ -687,7 +742,7 @@ class ImpliedHarmony:
         if use_scalemask:
             scalemask = self.getScaleMask(extendToAllNaturalTones=True)
         else:
-            scalemask = np.ones(40, dtype=bool)
+            scalemask = np.ones((len(self.wpc.ixs), 40), dtype=bool)
 
         transitions = []
         for ixs2 in zip(chord2_ixs[0], chord2_ixs[1]):
@@ -696,7 +751,7 @@ class ImpliedHarmony:
                     chords,
                     (ix1,ixs1[0],ixs1[1]),
                     (ix2, ixs2[0], ixs2[1]),
-                    scalemask=scalemask,
+                    scalemask=scalemask[ix2],
                     song=self.song,
                     wpc=self.wpc
                 )
