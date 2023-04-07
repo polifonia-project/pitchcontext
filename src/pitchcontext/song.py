@@ -464,7 +464,7 @@ class Song:
         return song_new
 
 
-    def getColoredSong(self, colordict, lyrics=None, lyrics_ixs=None):
+    def getColoredSong(self, colordict, lyrics=None, lyrics_ixs=None, title=None):
         """Create a new music21 stream with notes colored according to `colordict`.
 
         Parameters
@@ -487,6 +487,8 @@ class Song:
             s = copy.deepcopy(self.s)
         else:
             s = self.parseMelody()
+        if title != None:
+            s.metadata.title = title
         #check for right length #if so, assume notes correspond with features
         assert self.getSongLength() == len(s.flat.notes)
         for color, ixs in colordict.items():
@@ -592,7 +594,7 @@ class Song:
                 if "\\version" in l:
                     f.write( "\paper { system-system-spacing.basic-distance = #16 }\n" )
 
-    def createColoredPDF(self, colordict, outputpath, filebasename=None, showfilename=True, lyrics=None, lyrics_ixs=None):
+    def createColoredPDF(self, colordict, outputpath, filebasename=None, showfilename=True, lyrics=None, lyrics_ixs=None, title=None):
         """Create a pdf with a score with colored notes.
 
         Parameters
@@ -615,7 +617,7 @@ class Song:
         """
         if filebasename == None:
             filebasename = self.mtcsong['id']
-        s = self.getColoredSong(colordict, lyrics=lyrics, lyrics_ixs=lyrics_ixs)
+        s = self.getColoredSong(colordict, lyrics=lyrics, lyrics_ixs=lyrics_ixs, title=title)
         s.write('lily', os.path.join(outputpath, filebasename+'.ly'))
         self.formatAndRepairLy(os.path.join(outputpath, filebasename+'.ly'))
         if showfilename:
@@ -624,7 +626,7 @@ class Song:
         output = subprocess.run(["lilypond", os.path.join(outputpath, filebasename+'.ly')], cwd=outputpath, capture_output=True)
         return os.path.join(outputpath, filebasename+'.pdf')
 
-    def createColoredPNG(self, colordict, outputpath, filebasename=None, showfilename=True, lyrics=None, lyrics_ixs=None):
+    def createColoredPNG(self, colordict, outputpath, filebasename=None, showfilename=True, lyrics=None, lyrics_ixs=None, title=None):
         """Create a png with a score with colored notes.
 
         Parameters
@@ -645,12 +647,12 @@ class Song:
         path-like object
             Full path of the generated png.
         """
-        pdf_fn = self.createColoredPDF(colordict, outputpath, filebasename, showfilename, lyrics=lyrics, lyrics_ixs=lyrics_ixs)
+        pdf_fn = self.createColoredPDF(colordict, outputpath, filebasename, showfilename, lyrics=lyrics, lyrics_ixs=lyrics_ixs, title=title)
         png_fn = pdf_fn.replace('.pdf','.png')
         output = subprocess.run(['convert', '-density', '100', pdf_fn, '-alpha', 'Remove', '-trim', png_fn], cwd=outputpath, capture_output=True)
         return png_fn
     
-    def showColoredPNG(self, colordict, outputpath, filebasename=None, showfilename=True, lyrics=None, lyrics_ixs=None):
+    def showColoredPNG(self, colordict, outputpath, filebasename=None, showfilename=True, lyrics=None, lyrics_ixs=None, title=None):
         """Show a png with a score with colored notes. For use in a Jupyter notebook.
 
         Parameters
@@ -666,7 +668,7 @@ class Song:
         showfilename : bool, default True
             Include the filename in the png (lilypond opus header).
         """
-        png_fn = self.createColoredPNG(colordict, outputpath, filebasename, showfilename, lyrics=lyrics, lyrics_ixs=lyrics_ixs)
+        png_fn = self.createColoredPNG(colordict, outputpath, filebasename, showfilename, lyrics=lyrics, lyrics_ixs=lyrics_ixs, title=title)
         display.display(display.Image(png_fn))
 
     def showPNG(self, lyrics=None, lyrics_ixs=None):
@@ -675,8 +677,8 @@ class Song:
         with tempfile.TemporaryDirectory() as tmpdirname:
             self.showColoredPNG({}, tmpdirname, showfilename=False, lyrics=lyrics, lyrics_ixs=lyrics_ixs)
     
-    def createPNG(self, outputpath, filebasename=None, showfilename=False, lyrics=None, lyrics_ixs=None):
-        return self.createColoredPNG({}, outputpath, filebasename=filebasename, showfilename=showfilename, lyrics=lyrics, lyrics_ixs=lyrics_ixs)
+    def createPNG(self, outputpath, filebasename=None, showfilename=False, lyrics=None, lyrics_ixs=None, title=None):
+        return self.createColoredPNG({}, outputpath, filebasename=filebasename, showfilename=showfilename, lyrics=lyrics, lyrics_ixs=lyrics_ixs, title=title)
 
 
     def writeMTCJSON(self, outputpath, filebasename=None):
