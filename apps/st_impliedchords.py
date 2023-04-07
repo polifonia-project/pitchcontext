@@ -75,7 +75,7 @@ widgets_defaults = [
     ('allowmajdom_wid',                 'allowmajdom_check',                True),
     ('root_third_final_wid',            'root_third_final_check',           True),
     ('use_scalemask_wid',               'use_scalemask_check',              True),
-    ('no_fourth_fifth_wid',             'no_fourth_fifth_slider',           0.85),
+    ('no_fourth_fifth_wid',             'no_fourth_fifth_slider',           0.75),
     ('final_v_i_wid',                   'final_v_i_slider',                 0.1),
     ('dom_fourth_wid',                  'dom_fourth_slider',                0.1),
     ('dim_m2_wid',                      'dim_m2_slider',                    0.1),
@@ -85,6 +85,7 @@ widgets_defaults = [
     ('preauto_wid',                     'preauto_check',                    True),
     ('postauto_wid',                    'postauto_check',                   True),
     ('context_boundary_threshold_wid',  'context_boundary_threshold_radio', 1.0),
+    ('context_rel_focus_wid',           'context_rel_focus_check',          False),
     ('partialnotes_wid',                'partialnotes_check',               True),
     ('removerep_wid',                   'removerep_check',                  False),
     ('accweight_wid',                   'accweight_check',                  True),
@@ -274,6 +275,11 @@ with st.sidebar:
         key='context_boundary_threshold_wid',
         on_change=delParams
     )
+    context_rel_focus_check = st.checkbox(
+        "Never extend focus beyond note with higher weight than focus note",
+        key='context_rel_focus_wid',
+        on_change=delParams,
+    )
     partialnotes_check = st.checkbox(
         "Include partial notes in preceding context.",
         key='partialnotes_wid',
@@ -353,7 +359,7 @@ wpc = PitchContext(
     context_type='beats',
     len_context_pre=len_context_pre,
     len_context_post=len_context_post,
-    len_context_params={'threshold':context_boundary_threshold_radio, 'not_heigher_than_focus':context_boundary_threshold_radio},
+    len_context_params={'threshold':context_boundary_threshold_radio, 'not_heigher_than_focus': context_rel_focus_check},
     use_metric_weights_pre=pre_usemw_check,
     use_metric_weights_post=post_usemw_check,
     include_focus_pre=include_focus_pre_check,
