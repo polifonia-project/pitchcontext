@@ -66,46 +66,58 @@ else:
 
 firstid = krnfile.rstrip(".krn")
 
+#(widgetname, variablename, default value)
+widgets_defaults = [
+    ('songid_wid',                      'songid',                           firstid),
+    ('same_root_wid',                   'same_root_slider',                 0.1),
+    ('diff_root_wid',                   'diff_root_slider',                 0.8),
+    ('granularity_threshold_wid',       'granularity_threshold',            0.5),
+    ('allowmajdom_wid',                 'allowmajdom_check',                True),
+    ('root_third_final_wid',            'root_third_final_check',           True),
+    ('use_scalemask_wid',               'use_scalemask_check',              True),
+    ('no_fourth_fifth_wid',             'no_fourth_fifth_slider',           0.85),
+    ('final_v_i_wid',                   'final_v_i_slider',                 0.1),
+    ('dom_fourth_wid',                  'dom_fourth_slider',                0.1),
+    ('dim_m2_wid',                      'dim_m2_slider',                    0.1),
+    ('fourth_dom_wid',                  'fourth_dom_slider',                0.8),
+    ('pre_c_wid',                       'pre_c_slider',                     3.0),
+    ('post_c_wid',                      'post_c_slider',                    3.0),
+    ('preauto_wid',                     'preauto_check',                    True),
+    ('postauto_wid',                    'postauto_check',                   True),
+    ('context_boundary_threshold_wid',  'context_boundary_threshold_radio', 1.0),
+    ('partialnotes_wid',                'partialnotes_check',               True),
+    ('removerep_wid',                   'removerep_check',                  False),
+    ('accweight_wid',                   'accweight_check',                  True),
+    ('include_focus_pre_wid',           'include_focus_pre_check',          True),
+    ('include_focus_post_wid',          'include_focus_post_check',         True),
+    ('pre_usemw_wid',                   'pre_usemw_check',                  True),
+    ('post_usemw_wid',                  'post_usemw_check',                 True),
+    ('pre_usedw_wid',                   'pre_usedw_check',                  True),
+    ('post_usedw_wid',                  'post_usedw_check',                 True),
+    ('mindistw_pre_wid',                'mindistw_pre_slider',              0.0),
+    ('mindistw_post_wid',               'mindistw_post_slider',             0.0),
+]
+
+def delSessionState(delsongid=False):
+    for wid in widgets_defaults:
+        if not delsongid:
+            if wid[0] == 'songid_wid':
+                continue
+        del st.session_state[wid[0]]
+
 def delParams():
     st.session_state.params_wid = ''
 
-#(widgetname, variablename, default value)
-widgets_defaults = [
-    ('songid_wid',  'songid', firstid),
-    ('same_root_wid', 'same_root_slider', 0.1),
-    ('diff_root_wid', 'diff_root_slider', 0.8),
-    ('granularity_threshold_wid', 'granularity_threshold',  0  ),
-    ('allowmajdom_wid', 'allowmajdom_check',  True),
-    ('root_third_final_wid', 'root_third_final_check',  True),
-    ('use_scalemask_wid', 'use_scalemask_check',  True),
-    ('no_fourth_fifth_wid', 'no_fourth_fifth_slider',  0.8),
-    ('final_v_i_wid', 'final_v_i_slider',  0.5),
-    ('dom_fourth_wid', 'dom_fourth_slider',  0.1),
-    ('dim_m2_wid', 'dim_m2_slider',  0.1),
-    ('fourth_dom_wid', 'fourth_dom_slider',  0.8),
-    ('pre_c_wid', 'pre_c_slider', 1.0),
-    ('post_c_wid', 'post_c_slider', 1.0),
-    ('preauto_wid', 'preauto_check', False),
-    ('postauto_wid','postauto_check', False),
-    ('context_boundary_threshold_wid', 'context_boundary_threshold_radio', 0.5),
-    ('partialnotes_wid', 'partialnotes_check', True),
-    ('removerep_wid', 'removerep_check',  False),
-    ('accweight_wid', 'accweight_check', True),
-    ('include_focus_pre_wid', 'include_focus_pre_check', True),
-    ('include_focus_post_wid', 'include_focus_post_check',  True),
-    ('pre_usemw_wid', 'pre_usemw_check',  True),
-    ('post_usemw_wid', 'post_usemw_check',  True),
-    ('pre_usedw_wid', 'pre_usedw_check',  True),
-    ('post_usedw_wid', 'post_usedw_check',  True),
-    ('mindistw_pre_wid', 'mindistw_pre_slider',  0.0),
-    ('mindistw_post_wid', 'mindistw_post_slider', 0.0),
-]
-
-def delSessionState():
-    for wid in widgets_defaults:
-        del st.session_state[wid[0]]
+def newSong():
+    delParams()
+    delSessionState(delsongid=False)
 
 with st.sidebar:
+
+    st.button(
+        label='Restore defaults',
+        on_click=delSessionState
+    )
 
     params_area = st.text_area(
         'Parameter setting',
@@ -129,7 +141,7 @@ with st.sidebar:
     songid = st.text_input(
         label="Song ID",
         key='songid_wid',
-        on_change=delParams,
+        on_change=newSong,
     )
 
     #we need to load the song here, because the song is needed to set pre_c_slider and post_c_slider max
@@ -323,10 +335,7 @@ with st.sidebar:
         key='mindistw_post_wid',
         on_change=delParams,
     )
-    st.button(
-        label='Restore defaults',
-        on_click=delSessionState
-    )
+
 
 len_context_pre = 'auto' if preauto_check else pre_c_slider
 len_context_post = 'auto' if postauto_check else post_c_slider
@@ -470,9 +479,12 @@ with col1:
     image = Image.open(pngfn_chords)
     st.image(image, output_format='PNG', use_column_width=True)
 
+    st.text(" ") 
+    st.text(" ") 
+
     pngfn_orig = song.createPNG(
-        '/Users/krane108/tmp/',
-        showfilename=True
+        '/tmp',
+        showfilename=False
     )
     image = Image.open(pngfn_orig)
     st.image(image, output_format='PNG', use_column_width=True)
