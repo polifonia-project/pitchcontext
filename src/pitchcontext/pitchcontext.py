@@ -167,7 +167,6 @@ class PitchContext:
             if syncopes:
                 syncopes=False
                 print("Warning: setting accumulateWeight implies syncopes=False.")
-            max_onset = len(beatstrengthgrid)-1
             #for each note make span of onsets:
             for ix, span in enumerate(zip(start_onsets, stop_onsets)):
                 weights[ix] = sum(beatstrengthgrid[span[0]:span[1]])
