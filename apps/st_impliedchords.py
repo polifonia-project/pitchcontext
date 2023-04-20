@@ -77,6 +77,7 @@ widgets_defaults = [
     ('use_scalemask_wid',               'use_scalemask_check',              True),
     ('no_fourth_fifth_wid',             'no_fourth_fifth_slider',           0.75),
     ('final_v_i_wid',                   'final_v_i_slider',                 0.1),
+    ('final_iv_i_wid',                  'final_iv_i_slider',                0.8),
     ('dom_fourth_wid',                  'dom_fourth_slider',                0.1),
     ('dim_m2_wid',                      'dim_m2_slider',                    0.1),
     ('fourth_dom_wid',                  'fourth_dom_slider',                0.8),
@@ -105,6 +106,7 @@ def delSessionState(delsongid=False):
             if wid[0] == 'songid_wid':
                 continue
         del st.session_state[wid[0]]
+    delParams()
 
 def delParams():
     st.session_state.params_wid = ''
@@ -235,11 +237,19 @@ with st.sidebar:
     )
 
     final_v_i_slider = st.slider(
-        'Multiplier NO fifth up on final pitch',
+        'Multiplier NO fifth or fourth up on final pitch',
         min_value=0.0,
         max_value=1.0,
         step=0.05,
         key='final_v_i_wid',
+        on_change=delParams,
+    )
+    final_iv_i_slider = st.slider(
+        'Multiplier fifth up on final pitch',
+        min_value=0.0,
+        max_value=1.0,
+        step=0.05,
+        key='final_iv_i_wid',
         on_change=delParams,
     )
 
@@ -371,19 +381,27 @@ wpc = PitchContext(
 )
 
 #NB chord1_ixs and chord2_ixs are indices in wpc.ixs (might differ from full song)
-def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40, dtype=bool), song=None, wpc=None):
+def myChordTransitionScore(chords, traceback, chord1_ixs, chord2_ixs, scalemask=np.ones(40, dtype=bool), song=None, wpc=None):
 
     #scoring scheme.
     pitch1 = chord1_ixs[1] % 40
     pitch2 = chord2_ixs[1] % 40
     songlength = song.songlength
     shift = (pitch2 - pitch1) % 40 #interval of roots in base40
+    #ix last root change
+    ix_lastchange = traceback[chord1_ixs[0],chord1_ixs[1],chord1_ixs[2]][2]
+    pitch_lastchange = traceback[chord1_ixs[0],chord1_ixs[1],chord1_ixs[2]][3]
+    shift_lastchange = (pitch2 - (pitch_lastchange % 40)) % 40
 
     #no score if root of chord tones is not in the scalemask)
     if not scalemask[pitch1] or not scalemask[pitch2]:
         return 0.0
 
     #else compute score step by step
+
+    # TODO: No chord change if note 2 not part of chord 2.
+    # BUT: appoggiatura! Impossible with first-order transitions. Need to look into 'future'. Or do back pass?
+
 
     # 1. start with score for 'next' chord
     score = chords[chord2_ixs]
@@ -397,6 +415,14 @@ def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40,
         if chord1_ixs[2] != chord2_ixs[2]:
             if  not ( chord1_ixs[2] == 2 and chord2_ixs[2] == 3 ):
                 score = score * same_root_slider
+
+    #Prevent chord syncope (start at low metric weight (<secondary accent), continue past higher metric weight)
+    #Relate this to last root CHANGE (is in traceback matrix)
+    if song.mtcsong['features']['beatstrength'][ix_lastchange] < 0.5:
+        if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] > song.mtcsong['features']['beatstrength'][ix_lastchange]:
+            #stimulate chord change at higher metric weight
+            if pitch1 == pitch2:
+                return -10.
 
     # discourage root, and/or quality change on note with low metric weight (except maj->dom on same root)
     if granularity_threshold > 0:
@@ -412,34 +438,49 @@ def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40,
     # HOW TO DO THIS?
     # e.g. we do not want 
 
-    # prefer root movement of fourth and fifth
+    # prefer root movement of fourth and fifth (or continuation)
     if shift != 17 and shift != 23 and shift !=0:
         score = score * no_fourth_fifth_slider
 
-    # prefer fifth up relation for final note
-    # Actually, apply this to the last pitch CHANGE (final tone might be repeated)
-    # Actually, not always. e.g. e8 e8 | e2. and beatstrengththreshold=1... 
-    # So only if chord change is ALLOWED
-    # But then previous pitch might also be the tonic. If anticipation, this is fine, otherwise not.
-    if song.mtcsong['features']['isfinalpitch'][chord2_ixs[0]]: #final pitch
-        if granularity_threshold-epsilon > 0:
-            #check whether change is allowed
-            #check whether change should have been on previous note
-            if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] >= granularity_threshold-epsilon: #allowed
-                if song.mtcsong['features']['highestweight'][chord2_ixs[0]] < granularity_threshold-epsilon: #no previous candidate
-                    if shift != 17:
-                        score = score * final_v_i_slider
-        else: #only on start of final pitches
-            if song.mtcsong['features']['startfinalpitch'][chord2_ixs[0]]:
-                if shift != 17:
-                    score = score * final_v_i_slider
+    # # prefer fifth up (perfect cadence) or fourth up (plagal cadence) relation for final note
+    # # Actually, apply this to the last pitch CHANGE (final tone might be repeated or elongated)
+    # # Actually, not always. e.g. e8 e8 | e2. and beatstrengththreshold=1... 
+    # # So only if chord change is ALLOWED
+    # # But then previous pitch might also be the tonic. If anticipation, this is fine, otherwise not.
+    # if song.mtcsong['features']['isfinalpitch'][chord2_ixs[0]]: #final pitch
+    #     if granularity_threshold-epsilon > 0:
+    #         #check whether change is allowed
+    #         #check whether change should have been on previous note
+    #         if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] >= granularity_threshold-epsilon: #allowed
+    #             if song.mtcsong['features']['highestweight'][chord2_ixs[0]] < granularity_threshold-epsilon: #no previous candidate
+    #                 if shift != 17 and shift != 23:
+    #                     score = score * final_v_i_slider
+    #     else: #only on start of final pitches
+    #         if song.mtcsong['features']['startfinalpitch'][chord2_ixs[0]]:
+    #             if shift != 17 and shift != 23:
+    #                 score = score * final_v_i_slider
+
+    # Better solution: consider last chord change: #but need to trace back to see what is previous chord. or also store that.
+    if chord2_ixs[0] == songlength - 1: #last note
+        if pitch1 == pitch2:
+            if shift_lastchange != 17 and shift_lastchange !=23:
+                score = score * final_v_i_slider
+            if shift_lastchange == 23:
+                score = score * final_iv_i_slider
+        else:
+            if shift != 17 and shift != 23:
+                score = score * final_v_i_slider
+            if shift == 23:
+                score = score * final_iv_i_slider
 
     # If previous is dom. Then root must be fourth up
+    # TODO: Except if next is continuation of the dominant/major
     if chord1_ixs[2] == 3:
         if shift != 17:
             score = score * dom_fourth_slider
 
     # 5. If previous is dim. Then root must be semitone up
+    # TODO: Except if next is continuation of the dim
     if chord1_ixs[2] == 0:
         if shift != 5:
             score = score * dim_m2_slider
@@ -454,7 +495,12 @@ def myChordTransitionScore(chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40,
         if chord2_ixs[0] == songlength - 1:
             melp40 = song.mtcsong['features']['pitch40'][songlength-1] - 1
             root_int = (melp40 - pitch2) % 40
-            if not root_int in [0, 11, 12]:
+            if root_int == 0:
+                pass
+            elif root_int == 11 or root_int == 12:
+                #return -10.
+                score = score * 0.8 #small penalty for third in melody
+            else:
                 return -10.
     return score
 
@@ -475,10 +521,13 @@ for ix in toremove:
 for ix in range(len(strtrace)):
     strtrace[ix] = strtrace[ix].replace('-','b')
 
+#ih.printTrace(trace, traceback)
+
 with col1:
     pngfn_chords = song.createPNG(
         '/tmp',
         showfilename=False,
+        filebasename=songid+'_harm',
         lyrics=strtrace,
         lyrics_ixs=wpc.ixs
     )
@@ -508,6 +557,7 @@ with col1:
     st.text(f"{use_scalemask_check=}")
     st.text(f"{no_fourth_fifth_slider=}")
     st.text(f"{final_v_i_slider=}")
+    st.text(f"{final_iv_i_slider=}")
     st.text(f"{dom_fourth_slider=}")
     st.text(f"{dim_m2_slider=}")
     st.text(f"{fourth_dom_slider=}")
