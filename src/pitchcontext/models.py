@@ -324,7 +324,7 @@ class ImpliedHarmony:
         self.masks = np.stack([chordmask_dim, chordmask_min, chordmask_maj, chordmask_dom])
         self.numchords = self.masks.shape[0]
 
-    def chordTransitionScore(self, chords, chord1_ixs, chord2_ixs, scalemask=np.ones(40, dtype=bool), song=None, wpc=None):
+    def chordTransitionScore(self, chords, traceback, chord1_ixs, chord2_ixs, scalemask=np.ones(40, dtype=bool), song=None, wpc=None):
 
         #scoring scheme.
         pitch1 = chord1_ixs[1] % 40
@@ -555,7 +555,7 @@ class ImpliedHarmony:
         chords      = self.getChords(use_scalemask=use_scalemask)
         numpitches  = chords.shape[1]        
         score       = np.zeros( (self.wpc.pitchcontext.shape[0], numpitches, self.numchords) )
-        traceback   = np.zeros( (self.wpc.pitchcontext.shape[0], numpitches, self.numchords, 2), dtype=int ) #coordinates (pitch, chord) for previous chord
+        traceback   = np.zeros( (self.wpc.pitchcontext.shape[0], numpitches, self.numchords, 4), dtype=int ) #coordinates (pitch, chord, ix last root change, previous pitch) for previous chord
         trace       = np.zeros( (self.wpc.pitchcontext.shape[0], 2), dtype=int ) # (pitch, chord) for each note
         trace_score = np.zeros( (self.wpc.pitchcontext.shape[0], 2) ) # (score, score_diff) for each note
 
@@ -572,6 +572,7 @@ class ImpliedHarmony:
                 for ixs1 in zip(chord1_ixs[0], chord1_ixs[1]):
                     transistionscore = chordTransitionScoreFunction(
                         chords,
+                        traceback,
                         (ix-1,ixs1[0],ixs1[1]),
                         (ix, ixs2[0], ixs2[1]),
                         scalemask=scalemask[ix],
@@ -585,7 +586,14 @@ class ImpliedHarmony:
                 #update score
                 score[ix, ixs2[0], ixs2[1]] = maxscore
                 #update traceback
-                traceback[ix, ixs2[0], ixs2[1]] = max_ixs                
+                traceback[ix, ixs2[0], ixs2[1]][0:2] = max_ixs
+                if ixs2[0] % 40 != max_ixs[0] % 40: #new root @ ix
+                    traceback[ix, ixs2[0], ixs2[1]][2] = ix
+                    traceback[ix, ixs2[0], ixs2[1]][3] = max_ixs[0]
+                else:
+                    traceback[ix, ixs2[0], ixs2[1]][2] = traceback[ix-1, max_ixs[0], max_ixs[1]][2]  #take start of root from prvious in trace
+                    traceback[ix, ixs2[0], ixs2[1]][3] = traceback[ix-1, max_ixs[0], max_ixs[1]][3]  #take previous pitch from prvious in trace
+
 
         #now do the traceback.
         #find max score for last note
@@ -649,7 +657,7 @@ class ImpliedHarmony:
             chordmask_shift = np.roll(self.masks, shift, axis=1)
             chordmask_minseventh_shift = np.roll(chordmask_minseventh, shift)
 
-            #only accept chords which have all notes in the scale (might fail when scale tones do not occur in the melody e.g. NLB070513_01 in G, but no F#)
+            #only accept chords which have all notes in the (local) scale
             for maskid in range(self.numchords):
                 if np.prod(scalemask[np.where(chordmask_shift[maskid])]) < epsilon:
                     chordmask_shift[maskid] = 0
@@ -784,3 +792,17 @@ class ImpliedHarmony:
                 ))
         for tr in sorted(transitions, key=lambda x: x[9], reverse=True):
             print(' '.join([str(t) for t in tr]))
+
+    def printTrace(self, trace, traceback):
+        for ix, tr in enumerate(trace):
+            print(
+                ix,
+                base40[trace[ix][0]%40],
+                self.chordquality[trace[ix][1]],
+                traceback[
+                    ix,
+                    trace[ix][0],
+                    trace[ix][1]
+                ]
+            )
+
