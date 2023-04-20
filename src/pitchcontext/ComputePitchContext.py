@@ -188,9 +188,17 @@ class ComputePitchContextBeats(ComputePitchContext):
         distance_weights_pre  = beatoffset_previous[context_pre_ixs] * (1.0-mindist)/len_context_pre + 1.0
         #set negative weights to zero:
         distance_weights_pre[distance_weights_pre<0.0] = 0.0
+        # if focus_ix == 6:
+        #     print("note 6")
+        #     print(f"{beatoffset_previous=}")
+        #     print(f"{mindist=}")
+        #     print(f"{len_context_pre=}")
+        #     print("(1.0-mindist)/len_context_pre = ", (1.0-mindist)/len_context_pre)
+        #     print("pre distance weights for note 6: ", distance_weights_pre)
         return distance_weights_pre
 
     def computeDistanceWeightsPost(self, context_post_ixs, focus_ix):
+        #TODO: make distinction wether focus note is part of context or not.
         beatoffset = self.beatinsong - self.beatinsong[focus_ix]
         slicelength = self.beatinsong_next[focus_ix] - self.beatinsong[focus_ix]
         beatoffset_next = beatoffset - slicelength #set onset of next note to 0.0
@@ -201,6 +209,14 @@ class ComputePitchContextBeats(ComputePitchContext):
         distance_weights_post[distance_weights_post<0.0] = 0.0
         #set max weight to one (if focus note in post context, weight of focus note > 1.0)
         distance_weights_post[distance_weights_post>1.0] = 1.0
+        # if focus_ix == 6:
+            # print("note 6")
+            # print(f"{slicelength=}")
+            # print(f"{beatoffset_next=}")
+            # print(f"{mindist=}")
+            # print(f"{len_context_post=}")
+            # print("-(1.0-mindist)/len_context_post = ", -(1.0-mindist)/len_context_post)
+            # print("post distance weights for note 6: ", distance_weights_post)
         return distance_weights_post
 
     def computeContextLength(self, context_ixs):
