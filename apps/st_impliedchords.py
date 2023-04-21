@@ -306,7 +306,7 @@ with st.sidebar:
         on_change=delParams
     )
     context_rel_focus_check = st.checkbox(
-        "Never extend focus beyond note with higher weight than focus note",
+        "Never extend context beyond note with higher weight than focus note",
         key='context_rel_focus_wid',
         on_change=delParams,
     )
