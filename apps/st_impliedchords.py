@@ -66,16 +66,20 @@ else:
 
 firstid = krnfile.rstrip(".krn")
 
+
+
 #(widgetname, variablename, default value)
 widgets_defaults = [
     ('songid_wid',                      'songid',                           firstid),
     ('same_root_wid',                   'same_root_slider',                 0.1),
     ('diff_root_wid',                   'diff_root_slider',                 0.8),
     ('granularity_threshold_wid',       'granularity_threshold',            0.5),
+    ('syncope_level_threshold_wid',     'syncope_level_threshold',          1.0),
     ('allowmajdom_wid',                 'allowmajdom_check',                True),
-    ('root_third_final_wid',            'root_third_final_check',           True),
     ('use_scalemask_wid',               'use_scalemask_check',              True),
     ('no_fourth_fifth_wid',             'no_fourth_fifth_slider',           0.75),
+    ('root_third_final_wid',            'root_third_final_check',           True),
+    ('final_third_wid',                 'final_third_slider',               0.75),
     ('final_v_i_wid',                   'final_v_i_slider',                 0.1),
     ('final_iv_i_wid',                  'final_iv_i_slider',                0.8),
     ('dom_fourth_wid',                  'dom_fourth_slider',                0.1),
@@ -113,7 +117,7 @@ def delParams():
 
 def newSong():
     delParams()
-    delSessionState(delsongid=False)
+    #delSessionState(delsongid=False)
 
 with st.sidebar:
 
@@ -164,6 +168,13 @@ with st.sidebar:
         on_change=delParams
     )
 
+    syncope_level_threshold = st.radio(
+        "Allow chord syncopes from position with beatstrength >=",
+        (1.0, 0.5, 0.25, 0.125),
+        key='syncope_level_threshold_wid',
+        on_change=delParams,
+    )
+
     use_scalemask_check = st.checkbox(
         "Use scale when choosing chords",
         key='use_scalemask_wid',
@@ -171,7 +182,7 @@ with st.sidebar:
     )
 
     diff_root_slider = st.slider(
-        'Multiplier different root',
+        'Multiplier root change',
         min_value=0.0,
         max_value=1.0,
         step=0.05,
@@ -180,7 +191,7 @@ with st.sidebar:
     )
 
     same_root_slider = st.slider(
-        'Multiplier same root, different quality',
+        'Multiplier same root but different quality',
         min_value=0.0,
         max_value=1.0,
         step=0.05,
@@ -233,6 +244,15 @@ with st.sidebar:
     root_third_final_check = st.checkbox(
         "Chord-root or third in melody at final note",
         key='root_third_final_wid',
+        on_change=delParams,
+    )
+
+    final_third_slider = st.slider(
+        'Multiplier third at final note.',
+        min_value=0.0,
+        max_value=1.0,
+        step=0.05,
+        key='final_third_wid',
         on_change=delParams,
     )
 
@@ -418,7 +438,7 @@ def myChordTransitionScore(chords, traceback, chord1_ixs, chord2_ixs, scalemask=
 
     #Prevent chord syncope (start at low metric weight (<secondary accent), continue past higher metric weight)
     #Relate this to last root CHANGE (is in traceback matrix)
-    if song.mtcsong['features']['beatstrength'][ix_lastchange] < 0.5:
+    if song.mtcsong['features']['beatstrength'][ix_lastchange] < ( syncope_level_threshold - epsilon ):
         if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] > song.mtcsong['features']['beatstrength'][ix_lastchange]:
             #stimulate chord change at higher metric weight
             if pitch1 == pitch2:
@@ -498,10 +518,10 @@ def myChordTransitionScore(chords, traceback, chord1_ixs, chord2_ixs, scalemask=
             if root_int == 0:
                 pass
             elif root_int == 11 or root_int == 12:
-                #return -10.
-                score = score * 0.8 #small penalty for third in melody
+                score = score * final_third_slider #small penalty for third in melody
             else:
                 return -10.
+
     return score
 
 ih = ImpliedHarmony(wpc)
@@ -550,10 +570,12 @@ with col1:
     st.text(f"{krnpath=}")
     st.text(f"{jsonpath=}")
     st.text(f"{granularity_threshold=}")
+    st.text(f"{syncope_level_threshold=}")
     st.text(f"{diff_root_slider=}")
     st.text(f"{same_root_slider=}")
     st.text(f"{allowmajdom_check=}")
     st.text(f"{root_third_final_check=}")
+    st.text(f"{final_third_slider=}")
     st.text(f"{use_scalemask_check=}")
     st.text(f"{no_fourth_fifth_slider=}")
     st.text(f"{final_v_i_slider=}")
