@@ -63,11 +63,52 @@ class ComputePitchContext(ABC):
     def computeContextLengthPost(self, context_ixs):
         pass
 
+class ComputePitchContextExpWindow(ComputePitchContext):
+    def __init__(self, wpc: 'PitchContext'):
+        super().__init__(wpc)
+
+    def computePreContextFixed(self, focus_ix, **context_params_pre):
+        context_pre_ixs = []
+        return context_pre_ixs
+
+    def computePostContextFixed(self, focus_ix, **context_params_post):
+        context_post_ixs = []
+        return context_post_ixs
+
+    def computePreContextAuto(self, focus_ix, **context_params_pre):
+        context_pre_ixs = []
+        return context_pre_ixs
+
+    def computePostContextAuto(self, focus_ix, **context_params_post):
+        context_post_ixs = []
+        return context_post_ixs
+
+    def computeDistanceWeightsPre(self, context_pre_ixs, focus_ix):
+        distance_weights_pre = []
+        return distance_weights_pre
+
+    def computeDistanceWeightsPost(self, context_post_ixs, focus_ix):
+        distance_weights_post = []
+        return distance_weights_post
+
+    def computeContextLength(self, context_ixs):
+        len_context = 0
+        return len_context
+
+    def computeContextLengthPre(self, context_ixs):
+        pass
+
+    def computeContextLengthPost(self, context_ixs):
+        pass
+
+
 class ComputePitchContextScoretime(ComputePitchContext):
     pass
 
+
 class ComputePitchContextNotes(ComputePitchContext):
     pass
+
 
 class ComputePitchContextBeats(ComputePitchContext):
     def __init__(self, wpc: 'PitchContext'):
