@@ -323,6 +323,11 @@ class ImpliedHarmony:
         }
         self.masks = np.stack([chordmask_dim, chordmask_min, chordmask_maj, chordmask_dom])
         self.numchords = self.masks.shape[0]
+        self.chordtones = np.zeros((40,40,self.numchords), dtype=bool) #(pitch, root of chord, chord quality). True if pitch in chord
+        for chordq in range(self.numchords):
+            for rootpitch in range(40):
+                chordmask_shift = np.roll(self.masks, rootpitch, axis=1)
+                self.chordtones[np.where(chordmask_shift[chordq]),rootpitch,chordq] = True
 
     def chordTransitionScore(
             self,
@@ -333,7 +338,8 @@ class ImpliedHarmony:
             scalemask=np.ones(40, dtype=bool),
             song=None,
             wpc=None,
-            ih=None):
+            ih=None
+        ):
         # Basic implementation
         # Please, provide your own.
 
@@ -604,7 +610,7 @@ class ImpliedHarmony:
         chordmask_minseventh = np.zeros(40)
         np.put(chordmask_minseventh, [34], 1.0) #used for check presence seventh in dom chord
 
-        #only take natural tones, and one b or one # as root
+        #only take natural tones, one b or one # as root
         valid_shifts = [1, 2, 3, 7, 8, 9, 13, 14, 15, 18, 19, 20, 24, 25, 26, 30, 31, 32, 36, 37, 38]
 
         #get a value for every rotation of the chordmasks
@@ -635,7 +641,6 @@ class ImpliedHarmony:
             score_all[shift] = np.sum(np.multiply(pitchcontextvector[:40]+pitchcontextvector[40:],chordmask_shift), axis=1)
             if np.sum(pitchcontextvector) > epsilon:
                 strength_all[shift] = score_all[shift] / np.sum(pitchcontextvector)
-
 
             #if seventh in dom chord is not present -> erase dom chord
             if np.sum(np.multiply(chordmask_minseventh_shift,pitchcontextvector[:40])) < epsilon:
