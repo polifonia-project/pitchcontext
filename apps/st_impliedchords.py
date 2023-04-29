@@ -91,7 +91,7 @@ widgets_defaults = [
     ('context_boundary_threshold_wid',  'context_boundary_threshold_radio', 1.0),
     ('context_rel_focus_wid',           'context_rel_focus_check',          False),
     ('partialnotes_wid',                'partialnotes_check',               True),
-    ('removerep_wid',                   'removerep_check',                  False),
+#    ('removerep_wid',                   'removerep_check',                  False),
     ('accweight_wid',                   'accweight_check',                  True),
     ('include_focus_pre_wid',           'include_focus_pre_check',          True),
     ('include_focus_post_wid',          'include_focus_post_check',         True),
@@ -320,11 +320,12 @@ with st.sidebar:
         key='partialnotes_wid',
         on_change=delParams,
     )
-    removerep_check = st.checkbox(
-        "Merge repeated notes.",
-        key='removerep_wid',
-        on_change=delParams,
-    )
+    removerep_check = False #Fixed.
+    # removerep_check = st.checkbox(
+    #     "Merge repeated notes.",
+    #     key='removerep_wid',
+    #     on_change=delParams,
+    # )
     accweight_check = st.checkbox(
         "Accumulate Weight.",
         key='accweight_wid',
@@ -597,7 +598,7 @@ with col1:
     st.text(f"{postauto_check=}")
     st.text(f"{context_boundary_threshold_radio=}")
     st.text(f"{partialnotes_check=}")
-    st.text(f"{removerep_check=}")
+#    st.text(f"{removerep_check=}")
     st.text(f"{accweight_check=}")
     st.text(f"{include_focus_pre_check=}")
     st.text(f"{include_focus_post_check=}")
