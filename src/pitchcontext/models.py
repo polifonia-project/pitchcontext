@@ -594,8 +594,6 @@ class ImpliedHarmony:
         chordmask_minseventh = np.zeros(40)
         np.put(chordmask_minseventh, [34], 1.0) #used for check presence seventh in dom chord
 
-
-
         #only take natural tones, and one b or one # as root
         valid_shifts = [1, 2, 3, 7, 8, 9, 13, 14, 15, 18, 19, 20, 24, 25, 26, 30, 31, 32, 36, 37, 38]
 
