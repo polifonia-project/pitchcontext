@@ -324,7 +324,16 @@ class ImpliedHarmony:
         self.masks = np.stack([chordmask_dim, chordmask_min, chordmask_maj, chordmask_dom])
         self.numchords = self.masks.shape[0]
 
-    def chordTransitionScore(self, chords, traceback, chord1_ixs, chord2_ixs, scalemask=np.ones(40, dtype=bool), song=None, wpc=None):
+    def chordTransitionScore(
+            self,
+            chords,
+            traceback,
+            chord1_ixs,
+            chord2_ixs,
+            scalemask=np.ones(40, dtype=bool),
+            song=None,
+            wpc=None,
+            ih=None):
         # Basic implementation
         # Please, provide your own.
 
@@ -533,7 +542,8 @@ class ImpliedHarmony:
                         (ix, ixs2[0], ixs2[1]),
                         scalemask=scalemask[ix],
                         song=self.song,
-                        wpc=self.wpc
+                        wpc=self.wpc,
+                        ih=self,
                     )
                     allscores[ixs1] = score[ix-1, ixs1[0], ixs1[1]] + transistionscore
                 #now find max
