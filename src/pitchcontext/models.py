@@ -325,63 +325,19 @@ class ImpliedHarmony:
         self.numchords = self.masks.shape[0]
 
     def chordTransitionScore(self, chords, traceback, chord1_ixs, chord2_ixs, scalemask=np.ones(40, dtype=bool), song=None, wpc=None):
+        # Basic implementation
+        # Please, provide your own.
 
         #scoring scheme.
         pitch1 = chord1_ixs[1] % 40
         pitch2 = chord2_ixs[1] % 40
-        songlength = song.songlength
-        shift = (pitch2 - pitch1) % 40 #interval of roots in base40
-
         #no score if root of chord tones is not in the scalemask)
         if not scalemask[pitch1] or not scalemask[pitch2]:
             return 0.0
 
-        #else compute score step by step
-
         # start with score for 'next' chord
         score = chords[chord2_ixs]
-
-        # Discourage same root, different quality #except maj -> dom
-        if pitch1 == pitch2:
-            if chord1_ixs[2] != chord2_ixs[2]:
-                if  not ( chord1_ixs[2] == 2 and chord2_ixs[2] == 3 ):
-                    score = score * 0.1
-
-        # discourage root change on note with low metric weight
-        if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] < 0.5:
-            if pitch1 != pitch2:
-                score = score * 0.5
-
-        # penalty for harmonically distant
-        # HOW TO DO THIS?
-        # e.g. we do not want 
-
-        # prefer root movement of fourth and fifth
-        if shift != 17 and shift != 23 and shift !=0:
-            score = score * 0.8
-
-        # strongly prefer V-I relation for final note
-        if chord2_ixs[0] == songlength - 1:
-            if shift != 17:
-                score = score * 0.5
-
-        # If previous is dom. Then root must be fourth up
-        if chord1_ixs[2] == 3:
-            if shift != 17:
-                score = score * 0.1
-
-        # if root is fourth up: prefer maj or dom for first chord
-        if shift == 17:
-            if chord1_ixs[2] == 0 or chord1_ixs[2] == 1:
-                score = score * 0.8
-
-        #  root or third in melody for last note
-        if chord2_ixs[0] == songlength - 1:
-            melp40 = song.mtcsong['features']['pitch40'][songlength-1] - 1
-            root_int = (melp40 - pitch2) % 40
-            if not root_int in [0, 11, 12]:
-                score = 0.
-
+        
         return score
 
     #ix = ix in full song
