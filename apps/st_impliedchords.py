@@ -66,8 +66,6 @@ else:
 
 firstid = krnfile.rstrip(".krn")
 
-
-
 #(widgetname, variablename, default value)
 widgets_defaults = [
     ('songid_wid',                      'songid',                           firstid),
@@ -75,6 +73,7 @@ widgets_defaults = [
     ('diff_root_wid',                   'diff_root_slider',                 0.8),
     ('granularity_threshold_wid',       'granularity_threshold',            0.5),
     ('syncope_level_threshold_wid',     'syncope_level_threshold',          1.0),
+    ('upbeat_change_wid',               'upbeat_change_check',              True),
     ('allowmajdom_wid',                 'allowmajdom_check',                True),
     ('use_scalemask_wid',               'use_scalemask_check',              True),
     ('no_fourth_fifth_wid',             'no_fourth_fifth_slider',           0.75),
@@ -172,6 +171,12 @@ with st.sidebar:
         "Allow chord syncopes from position with beatstrength >=",
         (1.0, 0.5, 0.25, 0.125),
         key='syncope_level_threshold_wid',
+        on_change=delParams,
+    )
+
+    upbeat_change_check = st.checkbox(
+        "Above, except for an upbeat.",
+        key='upbeat_change_wid',
         on_change=delParams,
     )
 
@@ -419,7 +424,7 @@ def myChordTransitionScore(chords, traceback, chord1_ixs, chord2_ixs, scalemask=
 
     #else compute score step by step
 
-    # TODO: No chord change if note 2 not part of chord 2.
+    # TODO: No chord change if note 2 not part of chord 2. Only on downbeat
     # BUT: appoggiatura! Impossible with first-order transitions. Need to look into 'future'. Or do back pass?
 
 
@@ -438,11 +443,13 @@ def myChordTransitionScore(chords, traceback, chord1_ixs, chord2_ixs, scalemask=
 
     #Prevent chord syncope (start at low metric weight (<secondary accent), continue past higher metric weight)
     #Relate this to last root CHANGE (is in traceback matrix)
-    if song.mtcsong['features']['beatstrength'][ix_lastchange] < ( syncope_level_threshold - epsilon ):
-        if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] > song.mtcsong['features']['beatstrength'][ix_lastchange]:
-            #stimulate chord change at higher metric weight
-            if pitch1 == pitch2:
-                return -10.
+    #not for upbeat (if upbeat_change_check)
+    if not ( upbeat_change_check and float(Fraction(song.mtcsong['features']['beatinsong'][ix_lastchange])) < 0 ):
+        if song.mtcsong['features']['beatstrength'][ix_lastchange] < ( syncope_level_threshold - epsilon ):
+            if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] > song.mtcsong['features']['beatstrength'][ix_lastchange]:
+                #stimulate chord change at higher metric weight
+                if pitch1 == pitch2:
+                    return -10.
 
     # discourage root, and/or quality change on note with low metric weight (except maj->dom on same root)
     if granularity_threshold > 0:
@@ -494,15 +501,15 @@ def myChordTransitionScore(chords, traceback, chord1_ixs, chord2_ixs, scalemask=
                 score = score * final_iv_i_slider
 
     # If previous is dom. Then root must be fourth up
-    # TODO: Except if next is continuation of the dominant/major
+    # Except if next is continuation of the dominant/major
     if chord1_ixs[2] == 3:
-        if shift != 17:
+        if shift != 17 and shift != 0:
             score = score * dom_fourth_slider
 
     # 5. If previous is dim. Then root must be semitone up
-    # TODO: Except if next is continuation of the dim
+    # Except if next is continuation of the dim
     if chord1_ixs[2] == 0:
-        if shift != 5:
+        if shift != 5 and shift != 0:
             score = score * dim_m2_slider
 
     # if root is fourth up: prefer maj or dom for first chord
@@ -571,6 +578,7 @@ with col1:
     st.text(f"{jsonpath=}")
     st.text(f"{granularity_threshold=}")
     st.text(f"{syncope_level_threshold=}")
+    st.text(f"{upbeat_change_check=}")
     st.text(f"{diff_root_slider=}")
     st.text(f"{same_root_slider=}")
     st.text(f"{allowmajdom_check=}")
