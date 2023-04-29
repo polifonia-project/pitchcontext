@@ -446,8 +446,9 @@ def myChordTransitionScore(
 
     #else compute score step by step
 
-    # TODO: No chord change if note 2 not part of chord 2. Only on downbeat
+    # No chord change if note 2 not part of chord 2. Only on downbeat
     # BUT: appoggiatura! Impossible with first-order transitions. Need to look into 'future'. Or do back pass?
+    # TODO: allow seventh as melody note?
     if focuschordtone_threshold > 0:
         if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] >= focuschordtone_threshold-epsilon:
             if root2 != root1: # chord change
