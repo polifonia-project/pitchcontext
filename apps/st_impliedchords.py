@@ -287,6 +287,12 @@ with st.sidebar:
         on_change=delParams,
     )
 
+    showcontexttype_check = st.checkbox(
+        "Show context with chord (0,1,2)",
+        key='showcontexttype_wid',
+        value=False,
+    )
+
     pre_c_slider = st.slider(
         'Length of preceding context (beats)',
         min_value=0.0,
@@ -559,7 +565,8 @@ def myChordTransitionScore(
 ih = ImpliedHarmony(wpc)
 
 trace, trace_score, score, traceback = ih.getOptimalChordSequence(chordTransitionScoreFunction=myChordTransitionScore, use_scalemask=use_scalemask_check)
-strtrace = ih.trace2str(trace)
+
+strtrace = ih.trace2str(trace, contextType=showcontexttype_check)
 
 #replace same chord
 toremove = []

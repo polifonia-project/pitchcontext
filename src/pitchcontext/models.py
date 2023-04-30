@@ -586,8 +586,11 @@ class ImpliedHarmony:
 
         return trace, trace_score, score, traceback
 
-    def trace2str(self, trace):
-        return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] for ix in range(self.wpc.pitchcontext.shape[0])]
+    def trace2str(self, trace, contextType=False):
+        if contextType:
+            return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] + str(int(trace[ix][0]/40)) for ix in range(self.wpc.pitchcontext.shape[0])]
+        else:
+            return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] for ix in range(self.wpc.pitchcontext.shape[0])]
 
     def getChords(self, use_scalemask=True):
         seq_length = len(self.wpc.ixs)
