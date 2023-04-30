@@ -365,7 +365,7 @@ class ImpliedHarmony:
     # include all alterations. So, no F in melody, include Fb, F, and F#
     def getScaleMask(self, extendToAllNaturalTones=False):
 
-        naturals = np.ones(7, dtype=bool) #[F C G D A E B] # True if not seen
+        naturals = np.ones(7, dtype=bool) #[F C G D A E B] # True if stemtone not present in melody
         naturalixs = np.array([19, 2, 25, 8, 31, 14, 37])
         naturalsix = np.zeros(40, dtype=int)
         naturalsix[30:33] = 4 #A
