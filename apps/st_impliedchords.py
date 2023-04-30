@@ -288,7 +288,7 @@ with st.sidebar:
     )
 
     showcontexttype_check = st.checkbox(
-        "Show context with chord (0:pre, 1:post, 2:both)",
+        "Show context with chord (0\:pre, 1\:post, 2\:both)",
         key='showcontexttype_wid',
         value=False,
     )
