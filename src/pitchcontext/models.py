@@ -379,6 +379,7 @@ class ImpliedHarmony:
         seq_length = len(self.wpc.ixs)
 
         #make scalemask for each note. includes the alteration of the stemtone that is CLOSEST to the focus note
+        #TODO: different weight for looking back and looking forward?
 
         #first record at which index the closest same stemtone is in the melody
         mostrecent = np.zeros((seq_length, 7), dtype=int) + 1000 #gives the index of the most recent stemtone (1000 if not yet)
