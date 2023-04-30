@@ -452,7 +452,7 @@ def myChordTransitionScore(
     if focuschordtone_threshold > 0:
         if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] >= focuschordtone_threshold-epsilon:
             if root2 != root1: # chord change
-                if not ih.chordtones[pitch2, root2, chord2_ixs[2]]:
+                if not ih.chordtones[pitch2, root2, chord2_ixs[2]] in [1, 3, 5]: #do not allow seventh as melody note
                     return -10.0
 
     # 1. start with score for 'next' chord
@@ -547,11 +547,9 @@ def myChordTransitionScore(
     # prefer root or third in melody for last note
     if root_third_final_check:
         if chord2_ixs[0] == songlength - 1:
-            melp40 = song.mtcsong['features']['pitch40'][songlength-1] - 1
-            root_int = (melp40 - root2) % 40
-            if root_int == 0:
+            if ih.chordtones[pitch2, root2, chord2_ixs[2]] == 1:
                 pass
-            elif root_int == 11 or root_int == 12:
+            elif ih.chordtones[pitch2, root2, chord2_ixs[2]] == 3:
                 score = score * final_third_slider #small penalty for third in melody
             else:
                 return -10.
