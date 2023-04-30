@@ -312,10 +312,10 @@ class ImpliedHarmony:
         chordmask_maj = np.zeros(40, dtype=int)
         chordmask_dom = np.zeros(40, dtype=int)
 
-        chordmask_dim[[0, 11, 22]] = [1, 3, 5]
-        chordmask_min[[0, 11, 23]] = [1, 3, 5]
-        chordmask_maj[[0, 12, 23]] = [1, 3, 5]
-        chordmask_dom[[0, 12, 23, 34]] = [1, 3, 5, 7]
+        chordmask_dim[[0, 11, 22]] = [1, 3, 5] #[root, third, fifth]
+        chordmask_min[[0, 11, 23]] = [1, 3, 5] #[root, third, fifth]
+        chordmask_maj[[0, 12, 23]] = [1, 3, 5] #[root, third, fifth]
+        chordmask_dom[[0, 12, 23, 34]] = [1, 3, 5, 7] #[root, third, fifth, seventh]
 
         self.chordquality = {
             0: 'dim',
