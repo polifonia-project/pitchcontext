@@ -307,14 +307,16 @@ class ImpliedHarmony:
         self.initchords()
 
     def initchords(self):
-        chordmask_dim = np.zeros(40)
-        chordmask_min = np.zeros(40)
-        chordmask_maj = np.zeros(40)
-        chordmask_dom = np.zeros(40)
-        np.put(chordmask_dim, [0, 11, 22], 1.0)
-        np.put(chordmask_min, [0, 11, 23], 1.0)
-        np.put(chordmask_maj, [0, 12, 23], 1.0)
-        np.put(chordmask_dom, [0, 12, 23, 34], 1.0)
+        chordmask_dim = np.zeros(40, dtype=int)
+        chordmask_min = np.zeros(40, dtype=int)
+        chordmask_maj = np.zeros(40, dtype=int)
+        chordmask_dom = np.zeros(40, dtype=int)
+
+        chordmask_dim[[0, 11, 22]] = [1, 3, 5]
+        chordmask_min[[0, 11, 23]] = [1, 3, 5]
+        chordmask_maj[[0, 12, 23]] = [1, 3, 5]
+        chordmask_dom[[0, 12, 23, 34]] = [1, 3, 5, 7]
+
         self.chordquality = {
             0: 'dim',
             1: 'm',
@@ -323,11 +325,11 @@ class ImpliedHarmony:
         }
         self.masks = np.stack([chordmask_dim, chordmask_min, chordmask_maj, chordmask_dom])
         self.numchords = self.masks.shape[0]
-        self.chordtones = np.zeros((40,40,self.numchords), dtype=bool) #(pitch, root of chord, chord quality). True if pitch in chord
+        self.chordtones = np.zeros((40,40,self.numchords), dtype=int) #(pitch, root of chord, chord quality). 1: root, 3: third, 5: fifth, 7: seventh
         for chordq in range(self.numchords):
             for rootpitch in range(40):
                 chordmask_shift = np.roll(self.masks, rootpitch, axis=1)
-                self.chordtones[np.where(chordmask_shift[chordq]),rootpitch,chordq] = True
+                self.chordtones[np.where(chordmask_shift[chordq]),rootpitch,chordq] = chordmask_shift[chordq][np.where(chordmask_shift[chordq])]
 
     def chordTransitionScore(
             self,
@@ -613,6 +615,10 @@ class ImpliedHarmony:
         #only take natural tones, one b or one # as root
         valid_shifts = [1, 2, 3, 7, 8, 9, 13, 14, 15, 18, 19, 20, 24, 25, 26, 30, 31, 32, 36, 37, 38]
 
+        #self.masks contains integers indicating the function of the tone in the chord (root, third, fifht, seventh)
+        #here we need masks with ones everywhere
+        binarymasks = np.clip(self.masks, 0, 1)
+
         #get a value for every rotation of the chordmasks
         score_pre = np.zeros((40, self.numchords))
         score_post = np.zeros((40, self.numchords))
@@ -624,7 +630,7 @@ class ImpliedHarmony:
             if not shift in valid_shifts:
                 continue
 
-            chordmask_shift = np.roll(self.masks, shift, axis=1)
+            chordmask_shift = np.roll(binarymasks, shift, axis=1)
             chordmask_minseventh_shift = np.roll(chordmask_minseventh, shift)
 
             #only accept chords which have all notes in the (local) scale
