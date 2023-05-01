@@ -74,6 +74,7 @@ widgets_defaults = [
     ('diff_root_wid',                   'diff_root_slider',                 0.8),
     ('granularity_threshold_wid',       'granularity_threshold',            0.5),
     ('focuschordtone_threshold_wid',    'focuschordtone_threshold',         0.5),
+    ('allow_appoggiatura_wid',          'allow_appoggiatura_check',         True),
     ('syncope_level_threshold_wid',     'syncope_level_threshold',          1.0),
     ('upbeat_change_wid',               'upbeat_change_check',              True),
     ('allowmajdom_wid',                 'allowmajdom_check',                True),
@@ -187,6 +188,12 @@ with st.sidebar:
         (1.0, 0.5, 0.25, 0.125, 0),
         key='focuschordtone_threshold_wid',
         on_change=delParams
+    )
+
+    allow_appoggiatura_check = st.checkbox(
+        "Above, but allow appoggiatura.",
+        key='allow_appoggiatura_wid',
+        on_change=delParams,
     )
 
     use_scalemask_check = st.checkbox(
@@ -451,17 +458,35 @@ def myChordTransitionScore(
         return 0.0
 
     #else compute score step by step
+    
+    # 1. start with score for 'next' chord
+    score = chords[chord2_ixs]
 
     # No chord change if note 2 not part of chord 2. Only on downbeat. No seventh as melody note
-    # BUT: appoggiatura! Impossible with first-order transitions. Need to look into 'future'. Or do back pass?
+    # BUT: appoggiatura! Impossible with first-order transitions. Need to look into 'future'. Or do back pass? Just provide possibility!
+    # allowance for appoggiatura if NEXT note does fit in chord, has lower beatstrength, and is second lower
+
+    appoggiatura = False
+    if allow_appoggiatura_check:
+        dp2 = song.mtcsong['features']['diatonicpitch'][wpc.ixs[chord2_ixs[0]]]
+        if wpc.ixs[chord2_ixs[0]] < songlength-1:
+            pitch3 = (song.mtcsong['features']['pitch40'][wpc.ixs[chord2_ixs[0]]+1] - 1) % 40
+            bs3 = song.mtcsong['features']['beatstrength'][wpc.ixs[chord2_ixs[0]]+1]
+            dp3 = song.mtcsong['features']['diatonicpitch'][wpc.ixs[chord2_ixs[0]]+1]
+        else:
+            pitch3 = 0
+            bs3 = 0
+            dp3 = 0
+        if ih.chordtones[pitch3, root2, chord2_ixs[2]] and bs3 < song.mtcsong['features']['beatstrength'][chord2_ixs[0]] and dp3-dp2 == -1:
+            appoggiatura = True
+    
     if focuschordtone_threshold > 0:
         if song.mtcsong['features']['beatstrength'][chord2_ixs[0]] >= focuschordtone_threshold-epsilon:
             if root2 != root1: # chord change
-                if not ih.chordtones[pitch2, root2, chord2_ixs[2]] in [1, 3, 5]: #do not allow seventh as melody note
+                if allow_appoggiatura_check and appoggiatura:
+                    pass
+                elif not ih.chordtones[pitch2, root2, chord2_ixs[2]] in [1, 3, 5]: #do not allow seventh as melody note
                     return -10.0
-
-    # 1. start with score for 'next' chord
-    score = chords[chord2_ixs]
 
     # prefer continuation of the chord
     if root1 != root2:
@@ -494,7 +519,7 @@ def myChordTransitionScore(
                     return -10.
 
     # penalty for harmonically distant
-    # HOW TO DO THIS?
+    # HOW TO DO THIS? distance in chain of fifths. multiplier for each step further away
     # e.g. we do not want 
 
     # prefer root movement of fourth and fifth (or continuation)
@@ -610,6 +635,7 @@ with col1:
     st.text(f"{granularity_threshold=}")
     st.text(f"{syncope_level_threshold=}")
     st.text(f"{focuschordtone_threshold=}")
+    st.text(f"{allow_appoggiatura_check=}")
     st.text(f"{upbeat_change_check=}")
     st.text(f"{diff_root_slider=}")
     st.text(f"{same_root_slider=}")
@@ -646,10 +672,13 @@ with col2:
     #reconstruct initial score:
     chords = ih.getChords()
     initialscore = []
+    beatstrengths = []
     for ix in wpc.ixs:
         initialscore.append(chords[ix,trace[ix][0],trace[ix][1]])
+        beatstrengths.append(song.mtcsong['features']['beatstrength'][wpc.ixs[ix]])
 
     report = wpc.printReport(
+        beatstrength = beatstrengths,
         initialscore = initialscore,
         chordscore = [tr[1] for tr in trace_score]
     )
