@@ -540,7 +540,12 @@ class ImpliedHarmony:
             chord1_ixs = np.where(chords[ix-1])
             #find indices of chord2
             chord2_ixs = np.where(chords[ix])
-        
+
+            #E.g., NLB191190_01, note 40?
+            #if all available chords are forbidden (score -10.), another chord gets chosen (score 0)
+            #TODO: all chord1_ixs should also be present in chord2_ixs, to always allow continuation of a chord?
+            #TODO: better: only take maximum over scores in chord2_ixs
+
             for ixs2 in zip(chord2_ixs[0], chord2_ixs[1]):
                 allscores = np.zeros( (numpitches, self.numchords) )
                 for ixs1 in zip(chord1_ixs[0], chord1_ixs[1]):
