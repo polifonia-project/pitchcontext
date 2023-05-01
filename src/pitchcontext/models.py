@@ -681,15 +681,15 @@ class ImpliedHarmony:
 
         return scores, strengths
     
-    def printChordsForNote(self, scores, strengths):
+    def printChordsForNote(self, chords):
         epsilon = 10e-4
-        chordixs = np.where(scores > epsilon)
+        chordixs = np.where(chords > epsilon)
         chords_pre = []
         chords_post = []
         chords_all = []
 
         for ix in zip(chordixs[0], chordixs[1]):
-            info = (base40[ix[0] % 40], self.chordquality[ix[1]], scores[ix], strengths[ix], scores[ix] * strengths[ix])
+            info = (base40[ix[0] % 40], self.chordquality[ix[1]], chords[ix])
             if ix[0] < 40:
                 chords_pre.append(info)
             else:
@@ -699,15 +699,15 @@ class ImpliedHarmony:
                     chords_all.append(info)
         
         print('pre:')
-        for info in sorted(chords_pre, key=lambda x: x[4], reverse=True):
+        for info in sorted(chords_pre, key=lambda x: x[2], reverse=True):
             print(info)
 
         print('post:')
-        for info in sorted(chords_pre, key=lambda x: x[4], reverse=True):
+        for info in sorted(chords_pre, key=lambda x: x[2], reverse=True):
             print(info)
 
         print('all:')
-        for info in sorted(chords_pre, key=lambda x: x[4], reverse=True):
+        for info in sorted(chords_pre, key=lambda x: x[2], reverse=True):
             print(info)
 
     def printChord(self, chord_in):
