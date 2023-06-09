@@ -26,6 +26,8 @@ Python module for melody analysis based on pitch context vectors.
 - convert (ImageMagick) installed and in command line path.
 - kernfiles and corresponding .json files with melodic features.
 
+The .json files need to be formatted according to the standard of [MTCFeatures](https://pvankranenburg.github.io/MTCFeatures/melodyrepresentation.html).
+
 ## Installation
 The latest release of the pitchcontext module can be installed from pypi:
 ```
