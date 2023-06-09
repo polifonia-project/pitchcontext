@@ -17,6 +17,7 @@ licence:
 release link:
 --- 
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8020644.svg)](https://doi.org/10.5281/zenodo.8020644)
 
 # pitchcontext
 Python module for melody analysis based on pitch context vectors.
