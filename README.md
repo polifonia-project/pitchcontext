@@ -3,8 +3,8 @@ component-id: pitchcontext
 name: pitchcontext
 description: Python module for melody analysis based on pitch context vectors.
 type: SoftwareLibrary
-release-date: 2023-04-07
-release-number: 0.1.8
+release-date: 2023-06-02
+release-number: 0.1.9
 work-package: 
 - WP3
 pilot: 
@@ -42,10 +42,11 @@ This creates a virtual environment with pitchcontext installed.
 
 ## Examples
 Requires a Python3 environment with both pitchcontext and streamlit installed.
-Three examples are provided:
+Four examples are provided:
 - apps/st_dissonance.py
 - apps/st_novelty.py
 - apps/st_unharmonicity.py
+- apps/st_impliedchords.py
 
 To run:
 ```
