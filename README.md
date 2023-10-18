@@ -2,9 +2,11 @@
 component-id: pitchcontext
 name: pitchcontext
 description: Python module for melody analysis based on pitch context vectors.
+image: https://github.com/polifonia-project/pitchcontext/blob/main/image/vector_example_hor.png
 type: SoftwareLibrary
 release-date: "2023-06-02"
 release-number: 0.1.9
+doi: 10.5281/zenodo.8020644
 work-package: 
 - WP3
 pilot: 
@@ -12,8 +14,10 @@ pilot:
 keywords:
   - melody
   - pitch analysis
-licence: 
-release link:
+licence: MIT
+contributors:
+  - P. van Kranenburg <https://github.com/pvankranenburg>
+project: polifonia-project
 --- 
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8020644.svg)](https://doi.org/10.5281/zenodo.8020644)
