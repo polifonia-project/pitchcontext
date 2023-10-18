@@ -20,7 +20,7 @@ contributors:
   - P. van Kranenburg <https://github.com/pvankranenburg>
 project: polifonia-project
 related-components:
-- stories:
+- story:
   - Mark#1_FolkMusic
   - Brendan#1_FindTraditionalMusic
 --- 
