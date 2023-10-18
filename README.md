@@ -21,8 +21,8 @@ contributors:
 project: polifonia-project
 related-components:
   - stories
-      - Mark#1_FolkMusic
-      - Brendan#1_FindTraditionalMusic
+    - Mark#1_FolkMusic
+    - Brendan#1_FindTraditionalMusic
 --- 
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8020644.svg)](https://doi.org/10.5281/zenodo.8020644)
