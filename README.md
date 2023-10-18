@@ -12,8 +12,7 @@ pilot:
 keywords:
   - melody
   - pitch analysis
-changelog:
-licence:
+licence: 
 release link:
 --- 
 
