@@ -3,7 +3,7 @@ component-id: pitchcontext
 name: pitchcontext
 description: Python module for melody analysis based on pitch context vectors.
 type: SoftwareLibrary
-release-date: 2023-06-02
+release-date: "2023-06-02"
 release-number: 0.1.9
 work-package: 
 - WP3
