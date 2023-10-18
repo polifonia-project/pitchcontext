@@ -14,7 +14,8 @@ pilot:
 keywords:
   - melody
   - pitch analysis
-licence: MIT
+licence:
+  - MIT
 contributors:
   - P. van Kranenburg <https://github.com/pvankranenburg>
 project: polifonia-project
