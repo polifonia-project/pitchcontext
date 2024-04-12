@@ -299,12 +299,16 @@ class Song:
 
     def add_features(self):
         """Adds a few features that are needed for computing pitch vectors. One value for each note.
+        - make sure pitch40 exists. In new version of MTCFeatures this is absent. Take pitch40_Hewlett
         - syncope: True if the note is a syncope (there is a a higher metric weight in the span of the note than at the start of the note).
         - maxbeatstrength: the highest beatstrenght DURING the note.
         - offsets: offset tick of the note (first tick AFTER the note)
         - beatinsong_float: float representation of beatinsong
         - is final pitch: bool. True if the pitch does not change anymore (final pitch might be repeated)
         """
+        #assert pitch40
+        if not 'pitch40' in self.mtcsong['features'].keys():
+            self.mtcsong['features']['pitch40'] = copy.deepcopy(self.mtcsong['features']['pitch40_hewlett'])
         self.mtcsong['features']['syncope'] = [False] * len(self.mtcsong['features']['pitch'])
         self.mtcsong['features']['maxbeatstrength'] = [0.0] * len(self.mtcsong['features']['pitch'])
         self.mtcsong['features']['beatstrengthgrid'] = self.beatstrength_grid
@@ -499,8 +503,15 @@ class Song:
         if lyrics == None:
             lyrics = [str(ix) for ix in range(len(s.flat.notes))]
             lyrics_ixs = list(range(len(list(s.flat.notes))))
-        if lyrics_ixs is None:
-            if len(lyrics) == len(list(s.flat.notes)):
+        #are more lines of lyrics provided?
+        multipleLines = False
+        if lyrics != None:
+            if type(lyrics[0]) == list:
+                multipleLines = True
+        if lyrics_ixs == None:
+            if not multipleLines and len(lyrics) == len(list(s.flat.notes)):
+                lyrics_ixs = list(range(len(list(s.flat.notes))))
+            elif multipleLines and len(lyrics[0]) == len(list(s.flat.notes)):
                 lyrics_ixs = list(range(len(list(s.flat.notes))))
             else:
                 print('Provide indices for the lyrics')
@@ -509,11 +520,6 @@ class Song:
                 return s
         #make sure it is a list (to use .index)
         lyrics_ixs = list(lyrics_ixs)
-        #are more lines of lyrics provided?
-        multipleLines = False
-        if lyrics != None:
-            if type(lyrics[0]) == list:
-                multipleLines = True
         for ix, n in enumerate(s.flat.notes):
             n.lyric = None
             try:
