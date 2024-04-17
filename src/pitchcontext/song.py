@@ -246,7 +246,7 @@ class Song:
         return s
 
     #N.B. contrary to the function currently in MTCFeatures (nov 2022), do not flatten the stream
-    def parseMelody(self):
+    def parseMelody(self, stripTies=True):
         """Converts **kern to music21 Stream and do necessary preprocessing:
         - pad splitted bars
         - strip ties
@@ -269,10 +269,26 @@ class Song:
             raise ParseError(self.krnfilename)
         #add padding to partial measure caused by repeat bar in middle of measure
         s = self.padSplittedBars(s)
-        s = s.stripTies()
+        if stripTies:
+            s = s.stripTies()
         self.removeGrace(s)
         return s
-
+    
+    def getTieMap(self, s):
+        """Create a mapping from indices in the mtc feature to indices in the score, skipping tied notes.
+        """
+        def untied(note):
+            if note.tie == None:
+                return True
+            else:
+                if note.tie.type == 'start':
+                    return True
+                else:
+                    return False
+        return [
+            ix for ix, n in enumerate(s.flat.notes) if untied(n)
+        ]
+    
     #Add metric grid
     def create_beatstrength_grid(self):
         """Creates a vector with for each possible onset the beatstrength. The last onset corresponds to the
