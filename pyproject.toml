@@ -8,7 +8,8 @@ packages = [{include = "pitchcontext", from = "src"}]
 
 [tool.poetry.dependencies]
 #streamlit is not compatible with Python 3.9.7
-python = ">=3.8,<3.9.7 || >3.9.7,<4.0" 
+#in Python 3.12 numpy cannot be installed because of deprecated distutil module
+python = ">=3.8,<3.9.7 || >3.9.7,<3.12"  
 music21 = "^8.0"
 numpy = "^1.19"
 matplotlib = "^3.3"
