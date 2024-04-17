@@ -380,6 +380,7 @@ class ImpliedHarmony:
 
         #make scalemask for each note. includes the alteration of the stemtone that is CLOSEST to the focus note
         #TODO: different weight for looking back and looking forward?
+        #TODO: different scalemasks for pre, post, and full contexts.
 
         #first record at which index the closest same stemtone is in the melody
         mostrecent = np.zeros((seq_length, 7), dtype=int) + 1000 #gives the index of the most recent stemtone (1000 if not yet)
@@ -545,7 +546,7 @@ class ImpliedHarmony:
             #if all available chords are forbidden (score -10.), another chord gets chosen (score 0)
             #TODO: all chord1_ixs should also be present in chord2_ixs, to always allow continuation of a chord?
             #TODO: better: only take maximum over scores in chord2_ixs
-
+            
             for ixs2 in zip(chord2_ixs[0], chord2_ixs[1]):
                 allscores = np.zeros( (numpitches, self.numchords) )
                 for ixs1 in zip(chord1_ixs[0], chord1_ixs[1]):
@@ -593,9 +594,9 @@ class ImpliedHarmony:
 
     def trace2str(self, trace, contextType=False):
         if contextType:
-            return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] + str(int(trace[ix][0]/40)) for ix in range(self.wpc.pitchcontext.shape[0])]
+            return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] + str(int(trace[ix][0]//40)) for ix in range(self.wpc.pitchcontext.shape[0])]
         else:
-            return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]] for ix in range(self.wpc.pitchcontext.shape[0])]
+            return [base40[trace[ix][0]%40] + self.chordquality[trace[ix][1]]                              for ix in range(self.wpc.pitchcontext.shape[0])]
 
     def getChords(self, use_scalemask=True):
         seq_length = len(self.wpc.ixs)
