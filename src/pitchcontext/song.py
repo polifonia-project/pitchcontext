@@ -491,28 +491,35 @@ class Song:
         if self.reduced:
             s = copy.deepcopy(self.s)
         else:
-            s = self.parseMelody()
+            s = self.parseMelody(stripTies=False)
         if title != None:
             s.metadata.title = title
+        tie_map = self.getTieMap(s)
         #check for right length #if so, assume notes correspond with features
-        assert self.getSongLength() == len(s.flat.notes)
+        assert self.getSongLength() == len(tie_map)
         for color, ixs in colordict.items():
             for ix in ixs:
+                ix = tie_map[ix]
                 s.flat.notes[int(ix)].style.color = color
+        #check whether continuation of ties needs to be colored
+        for ix, n in enumerate(s.flat.notes):
+            if n.tie != None:
+                if n.tie.type != 'start':
+                    s.flat.notes[int(ix)].style.color = s.flat.notes[int(ix-1)].style.color
         #add index of note as lyric
         if lyrics == None:
-            lyrics = [str(ix) for ix in range(len(s.flat.notes))]
-            lyrics_ixs = list(range(len(list(s.flat.notes))))
+            lyrics = [str(ix) for ix in range(len(tie_map))]
+            lyrics_ixs = list(range(len(tie_map)))
         #are more lines of lyrics provided?
         multipleLines = False
         if lyrics != None:
             if type(lyrics[0]) == list:
                 multipleLines = True
         if lyrics_ixs == None:
-            if not multipleLines and len(lyrics) == len(list(s.flat.notes)):
-                lyrics_ixs = list(range(len(list(s.flat.notes))))
-            elif multipleLines and len(lyrics[0]) == len(list(s.flat.notes)):
-                lyrics_ixs = list(range(len(list(s.flat.notes))))
+            if not multipleLines and len(lyrics) == len(tie_map):
+                lyrics_ixs = list(range(len(tie_map)))
+            elif multipleLines and len(lyrics[0]) == len(tie_map):
+                lyrics_ixs = list(range(len(tie_map)))
             else:
                 print('Provide indices for the lyrics')
                 for ix, n in enumerate(s.flat.notes):
@@ -521,6 +528,10 @@ class Song:
         #make sure it is a list (to use .index)
         lyrics_ixs = list(lyrics_ixs)
         for ix, n in enumerate(s.flat.notes):
+            try:
+                ix = tie_map.index(ix)
+            except ValueError:
+                continue
             n.lyric = None
             try:
                 lyricix = lyrics_ixs.index(ix)
