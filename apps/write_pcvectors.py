@@ -15,19 +15,19 @@ parser.add_argument(
     '-krnpath',
     dest='krnpath',
     help='Path to **kern files.',
-    default="/Users/krane108/data/MELFeatures/eyck/krn",
+    default="/Users/Krane108/data/MELFeatures/eyck/krn",
 )
 parser.add_argument(
     '-jsonpath',
     dest='jsonpath',
     help='Path to json files (in MTCFeatures format).',
-    default="/Users/krane108/data/MELFeatures/eyck/mtcjson",
+    default="/Users/Krane108/data/MELFeatures/eyck/mtcjson",
 )
 parser.add_argument(
     '-outpath',
     dest='outpath',
     help='Path to put output files.',
-    default="/Users/krane108/data/MELFeatures/eyck/pitchvectors",
+    default="/Users/Krane108/data/MELFeatures/eyck/pitchvectors",
 )
 parser.add_argument(
     '-startat',
