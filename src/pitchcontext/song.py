@@ -600,7 +600,7 @@ class Song:
         """
         with open(filename,'r') as f:
             lines = [self.repairLyline(l) for l in f.readlines()]
-        lines = lines + [ f'\paper {{ tagline = "" \nindent=0}}']
+        lines = lines + [ f'\\paper {{ tagline = "" \nindent=0}}']
         with open(filename,'w') as f:
             f.writelines(lines)
 
@@ -634,7 +634,7 @@ class Song:
             for l in lines:
                 f.write(l)
                 if "\\version" in l:
-                    f.write( "\paper { system-system-spacing.basic-distance = #16 }\n" )
+                    f.write( "\\paper { system-system-spacing.basic-distance = #16 }\n" )
 
     def createColoredPDF(self, colordict, outputpath, filebasename=None, showfilename=True, lyrics=None, lyrics_ixs=None, title=None):
         """Create a pdf with a score with colored notes.
@@ -691,7 +691,7 @@ class Song:
         """
         pdf_fn = self.createColoredPDF(colordict, outputpath, filebasename, showfilename, lyrics=lyrics, lyrics_ixs=lyrics_ixs, title=title)
         png_fn = pdf_fn.replace('.pdf','.png')
-        output = subprocess.run(['convert', '-density', '100', pdf_fn, '-alpha', 'Remove', '-trim', png_fn], cwd=outputpath, capture_output=True)
+        output = subprocess.run(['magick', '-density', '100', pdf_fn, '-alpha', 'Remove', '-trim', png_fn], cwd=outputpath, capture_output=True)
         return png_fn
     
     def showColoredPNG(self, colordict, outputpath, filebasename=None, showfilename=True, lyrics=None, lyrics_ixs=None, title=None):
