@@ -517,6 +517,9 @@ class ImpliedHarmony:
 
         return scalemask
 
+    def getGlobalScalemask(self, scalemask):
+        return np.where(sum(scalemask) != 0, 1, 0)
+
     def getOptimalChordSequence(self, use_scalemask=True, chordTransitionScoreFunction=None):
 
         if chordTransitionScoreFunction == None:
@@ -609,10 +612,11 @@ class ImpliedHarmony:
         chords = np.zeros( (self.wpc.pitchcontext.shape[0], numpitches, self.numchords ) ) # number of notes, 40 pre-pitches+40post-pitches, 4 chords (dim,min,maj,dom)
         for ix in range(self.wpc.pitchcontext.shape[0]):
             scores, strengths = self.getChordsForNote(self.wpc.pitchcontext[ix], normalize=True, scalemask=scalemask[ix])
-            chords[ix] = np.multiply(
-                scores,
-                strengths
-            )
+            # chords[ix] = np.multiply(
+            #     scores,
+            #     strengths
+            # )
+            chords[ix] = strengths
         return chords
 
     def getChordsForNote(self, pitchcontextvector, normalize=True, scalemask=np.ones(40, dtype=bool)):
@@ -704,11 +708,11 @@ class ImpliedHarmony:
             print(info)
 
         print('post:')
-        for info in sorted(chords_pre, key=lambda x: x[2], reverse=True):
+        for info in sorted(chords_post, key=lambda x: x[2], reverse=True):
             print(info)
 
         print('all:')
-        for info in sorted(chords_pre, key=lambda x: x[2], reverse=True):
+        for info in sorted(chords_all, key=lambda x: x[2], reverse=True):
             print(info)
 
     def printChord(self, chord_in):
