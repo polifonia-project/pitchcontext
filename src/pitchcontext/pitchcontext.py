@@ -11,6 +11,7 @@ from .song import Song
 from .PCParameters import PCParameters
 from .ComputePitchContext import ComputePitchContextBeats, ComputePitchContextNotes, ComputePitchContextScoretime
 from .base40 import base40
+from .visualize import printPitchContextVector
 
 #weighted pitch contect
 class PitchContext:
@@ -281,55 +282,4 @@ class PitchContext:
         note_ix=None, #report single note. IX in original song, not in ixs
         **features, #any other values to report. key: name, value: array size len(ixs)
     ):
-        """Returns a textual report with for each note the values of several features.
-
-        For each note print
-        - pitch and (metric) weight as computed by `self.computeWeightedPitch`
-        - indices (in `self.ixs`) of notes in the preceding context
-        - indices (in the MTC features) of notes in the preceding context
-        - indices (in `self.ixs`) of notes in the following context
-        - indices (in the MTC features) of notes in the following context
-        - pitches and corresponding weights in the precedings context
-        - pitches and corresponding wieghts in the following context
-        - any other feature provided as keyword argument (see below)
-
-        Parameters
-        ----------
-        note_ix : int, default None
-            Only print the values the note at index `note_ix` in the original melody (not in `self.ixs`).
-        **features  : keyword arguments
-            any other feature to report. The keyword is the name of the feature, the value is a 1D array
-            with the same length as `self.ixs`.
-
-        Returns
-        ----------
-        str
-            String containing the report.
-        """
-        output = []
-        for ix in range(len(self.ixs)):
-            if note_ix:
-                if note_ix != self.ixs[ix]: continue
-            pre_pitches = []
-            post_pitches = []
-            for p in range(40):
-                if self.pitchcontext[ix,p] > 0.0:
-                    pre_pitches.append((base40[p],self.pitchcontext[ix,p]))
-            for p in range(40):
-                if self.pitchcontext[ix,p+40] > 0.0:
-                    post_pitches.append((base40[p], self.pitchcontext[ix,p+40]))
-            pre_pitches = [str(p) for p in sorted(pre_pitches, key=lambda x: x[1], reverse=True)]
-            post_pitches = [str(p) for p in sorted(post_pitches, key=lambda x: x[1], reverse=True)]
-            output.append(f"note {self.ixs[ix]}, ix: {ix}")
-            output.append(f"  pitch, weight: {self.song.mtcsong['features']['pitch'][self.ixs[ix]]}, {self.song.mtcsong['features']['weights'][self.ixs[ix]]}")
-            output.append(f"  context_pre (ixs): {self.contexts_pre[ix]}")
-            output.append(f"  context_pre (notes): {np.array(self.ixs)[self.contexts_pre[ix]]}")
-            output.append(f"  context_post (ixs): {self.contexts_post[ix]}")
-            output.append(f"  context_post (notes): {np.array(self.ixs)[self.contexts_post[ix]]}")
-            output.append( "  pre:" + "\n       ".join(pre_pitches))
-            output.append( "  post:"+ "\n        ".join(post_pitches))
-            for name in features.keys():
-                output.append(f"  {name}: {features[name][ix]}")
-            output.append("")
-        return '\n'.join(output)
-
+        return printPitchContextVector(self, note_ix=note_ix, **features)
